@@ -29,6 +29,15 @@ const MAX_HISTORY_MESSAGES = 20;
  */
 const SPECULATIVE = process.env.SPECULATIVE_LLM === "1";
 
+export interface CallLimits {
+  maxCallMs: number;
+  /** Hang up after this long with nobody speaking. */
+  silenceHangupMs: number;
+  /** Checked every second; true ends the call (daily demo budget). */
+  budgetExhausted(): boolean;
+}
+type EndReason = "max_duration" | "silence_timeout" | "budget_exhausted" | "error";
+
 const LLM_FAILURE_LINE = "Sorry, I had trouble with that. Could you say it again?";
 
 /** Loose equality for "did the final transcript change the meaning?" */
@@ -84,6 +93,10 @@ export class Session {
   private carryText = "";
   private lastInterrupt: { turnId: number; segments: Segment[]; historyIndex: number; version: number } | null = null;
   private closed = false;
+  private readonly startedAt = now();
+  /** Last time anyone spoke (user speech start/end, or agent finishing a reply). */
+  private lastActivity = now();
+  private limitTimer: NodeJS.Timeout | null = null;
 
   constructor(
     readonly id: string,
@@ -92,6 +105,7 @@ export class Session {
     private readonly sttProvider: SttProvider,
     private readonly llm: LlmProvider,
     private readonly ttsProvider: TtsProvider,
+    private readonly limits: CallLimits,
   ) {
     this.system = buildSystemPrompt(agent);
   }
@@ -154,6 +168,21 @@ export class Session {
       this.endpointer?.pushAudio(frame, t);
     });
     this.transport.onClose(() => void this.close());
+    this.limitTimer = setInterval(() => this.checkLimits(), 1000);
+  }
+
+  private checkLimits(): void {
+    const t = now();
+    if (this.limits.budgetExhausted()) this.end("budget_exhausted");
+    else if (t - this.startedAt > this.limits.maxCallMs) this.end("max_duration");
+    else if (
+      !this.userSpeaking &&
+      !this.active &&
+      !this.speaker.busy &&
+      t - this.lastActivity > this.limits.silenceHangupMs
+    ) {
+      this.end("silence_timeout");
+    }
   }
 
   /** Speak the configured greeting (not part of LLM history). Call after `ready`. */
@@ -166,7 +195,10 @@ export class Session {
     this.transport.sendEvent({ type: "agent_text", turnId: -1, text });
     this.speaker.begin(-1, {
       onFirstAudioOut: () => !this.userSpeaking && this.setState("speaking"),
-      onFinished: () => this.setState(this.userSpeaking ? "user_speaking" : "listening"),
+      onFinished: () => {
+        this.lastActivity = now();
+        this.setState(this.userSpeaking ? "user_speaking" : "listening");
+      },
     });
     this.speaker.say(text);
     this.speaker.endText();
@@ -185,12 +217,14 @@ export class Session {
 
   private onSpeechStart(): void {
     this.userSpeaking = true;
+    this.lastActivity = now();
     if (this.agent.turnTaking.bargeIn && (this.active || this.speaker.busy)) this.bargeIn();
     this.setState("user_speaking");
   }
 
   private onEndpoint(speechEndT: number, endpointT: number): void {
     this.userSpeaking = false;
+    this.lastActivity = now();
     // With bargeIn off the agent isn't cut off at speech start, but a new user turn still replaces the reply.
     if (this.active || this.speaker.busy) this.bargeIn();
     this.stage("speech_end", speechEndT);
@@ -372,6 +406,7 @@ export class Session {
   private finishTurn(turn: ActiveTurn): void {
     if (this.active !== turn) return;
     this.active = null;
+    this.lastActivity = now();
     this.completeTurn(turn, { interrupted: false, agentText: turn.result?.text });
     this.setState(this.userSpeaking ? "user_speaking" : "listening");
   }
@@ -427,14 +462,18 @@ export class Session {
     this.stages = {};
   }
 
-  private end(reason: "error"): void {
+  end(reason: EndReason): void {
+    if (this.closed) return;
+    console.log(`[session ${this.id}] ending: ${reason}`);
     this.transport.sendEvent({ type: "ended", reason });
     this.transport.close();
+    void this.close();
   }
 
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    if (this.limitTimer) clearInterval(this.limitTimer);
     this.active?.llm.abort();
     this.active = null;
     this.speaker?.interrupt();

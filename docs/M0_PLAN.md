@@ -117,3 +117,33 @@ network + browser playout, so real end-to-end ≈ the PRD's 800 ms target).
   at Kodo."`), which also fixes being cut off by a mid-sentence pause longer than `silenceMs`.
 - Known limits: a noise blip during agent speech still cuts the agent off (no resume). Without headphones, barge-in relies
   on browser echo cancellation; validate on speakers before the public demo.
+
+**2026-11-02 — Gating built and tested locally (decision 6)**
+- Web `POST /api/session`: invite code (constant-time compare, 10 attempts / 10 min per IP) → HS256 session token,
+  60 s TTL, single-use `jti`, plus the orchestrator URL. Secret and HMAC code verified absent from the client bundle.
+- Orchestrator rejects: replayed / garbage / wrong-secret / expired tokens (4403), no `start` within 10 s (4408),
+  3rd concurrent call (`busy`), kill switch off (`disabled`), daily budget spent (`budget_exhausted`).
+  In-call: 3-min cap, 20 s silence hangup (verified: ends 20 s after the greeting), budget re-checked every second.
+- Daily usage persists to `DATA_DIR/usage.json` (Fly volume), so auto-stop/restarts don't reset the budget.
+  Gating state is per-process: Fly must run exactly one machine (M1: Redis).
+- Deploy runbook: `docs/DEPLOY.md`. Latency report: `scripts/latency-report.ts` (p50/p95 per stage, exit bar check).
+
+**2026-11-02 — Deployed to Fly `iad`; first real server numbers**
+- `voiceforge-orchestrator.fly.dev` (1 machine, shared-cpu-1x 1 GB, volume `/data`). Image 182 MB, boots in ~10 s.
+- 4 fixture turns (`stream-wav.ts` from the laptop; stages are on the server clock, so they're real `iad` numbers):
+
+| stage | iad | laptop (Mumbai) |
+|---|---|---|
+| endpointing (silenceMs 300) | 319–321 | ~300–340 |
+| STT finalize | **105–179** | 330–425 |
+| Claude TTFT (Haiku 5.5, cached) | **498–572** | ~800 |
+| chunker wait | 1–218 | 150–250 |
+| TTS first byte | **124–140** | 250–320 |
+| **server V2V** | **1151–1438** | ~1700–2100 |
+
+- Claude TTFT from `iad`, real 3.2k-token prompt, 10 interleaved calls each: **Haiku 5.5 (cached, effort low) p50 567 ms**
+  (508–928); **Haiku 4.5 (uncached: prompt is below its 4,096-token cache minimum) p50 430 ms** (357–601).
+  On a trivial prompt Haiku 5.5 was erratic (p50 1.28 s, up to 2.9 s) while Haiku 4.5 held ~430 ms.
+- Gap to the 700 ms bar is ~450–700 ms. Remaining levers, by size: LLM TTFT (model choice; speculative start needs a
+  faster-partial STT), endpointing (silenceMs 300 → 200 is now safer thanks to the continuation merge), chunker wait
+  (earlier first cut / short lead-in phrase), STT finalize (~130 ms, near floor).

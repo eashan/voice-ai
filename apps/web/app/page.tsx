@@ -1,10 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentState, ClientMessage, LatencyStage, ServerMessage, TurnLatencyRecord } from "@voiceforge/shared";
 
-const WS_URL = process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? "ws://localhost:8787/ws";
 const SAMPLE_RATE = 16000;
+const INVITE_KEY = "voiceforge.invite";
+
+const ENDED_MESSAGES: Record<Extract<ServerMessage, { type: "ended" }>["reason"], string> = {
+  hangup: "Call ended.",
+  max_duration: "Demo calls are limited to 3 minutes. Thanks for trying it!",
+  silence_timeout: "Hung up after 20 seconds of silence.",
+  budget_exhausted: "Today's demo minutes are used up. Try again tomorrow.",
+  disabled: "The demo is paused right now.",
+  error: "The call dropped because of a connection problem. Please try again.",
+};
 
 interface Turn {
   id: number;
@@ -80,6 +89,9 @@ export default function Page() {
   const [agentState, setAgentState] = useState<AgentState | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [invite, setInvite] = useState("");
+  useEffect(() => setInvite(localStorage.getItem(INVITE_KEY) ?? ""), []);
   const wsRef = useRef<WebSocket | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -129,7 +141,10 @@ export default function Page() {
         break;
       }
       case "error":
-        setErrors((e) => [...e.slice(-4), `${msg.code}: ${msg.message}`]);
+        setErrors((e) => [...e.slice(-4), `${msg.message} (${msg.code})`]);
+        break;
+      case "ended":
+        setNotice(ENDED_MESSAGES[msg.reason]);
         break;
     }
   }
@@ -166,6 +181,26 @@ export default function Page() {
     setStatus("connecting");
     setTurns([]);
     setErrors([]);
+    setNotice(null);
+
+    // Invite code → short-lived single-use session token (checked by the orchestrator).
+    let session: { token: string; wsUrl: string };
+    try {
+      const res = await fetch("/api/session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: invite }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      session = body;
+      localStorage.setItem(INVITE_KEY, invite);
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : String(err)]);
+      setStatus("idle");
+      return;
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     });
@@ -174,9 +209,9 @@ export default function Page() {
     const node = new AudioWorkletNode(ctx, "pcm-capture");
     ctx.createMediaStreamSource(stream).connect(node);
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(session.wsUrl);
     ws.binaryType = "arraybuffer";
-    ws.onopen = () => ws.send(JSON.stringify({ type: "start", token: "dev" }));
+    ws.onopen = () => ws.send(JSON.stringify({ type: "start", token: session.token } satisfies ClientMessage));
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return playPcm(ev.data as ArrayBuffer);
       onServerMessage(JSON.parse(ev.data) as ServerMessage);
@@ -209,13 +244,27 @@ export default function Page() {
         Ask about Eashan&apos;s experience. Interrupt any time. Use headphones so the agent doesn&apos;t hear itself.
         Latencies are server-measured.
       </p>
-      <button onClick={status === "idle" ? start : stop} style={{ fontSize: 18, padding: "12px 24px" }}>
+      {status === "idle" && (
+        <input
+          value={invite}
+          onChange={(e) => setInvite(e.target.value)}
+          placeholder="Invite code"
+          aria-label="Invite code"
+          style={{ fontSize: 18, padding: "11px 12px", marginRight: 8, width: 180 }}
+        />
+      )}
+      <button
+        onClick={status === "idle" ? start : stop}
+        disabled={status === "idle" && !invite.trim()}
+        style={{ fontSize: 18, padding: "12px 24px" }}
+      >
         {status === "idle" ? "🎙 Talk" : status === "connecting" ? "Connecting…" : "Hang up"}
       </button>
       {status === "live" && agentState && (
         <span style={{ marginLeft: 12, color: STATE_COLORS[agentState] }}>● {agentState.replace("_", " ")}</span>
       )}
 
+      {notice && <p style={{ color: "#555", background: "#f4f4f4", padding: 8 }}>{notice}</p>}
       {errors.length > 0 && (
         <pre style={{ background: "#fee", color: "#900", padding: 8, fontSize: 12, whiteSpace: "pre-wrap" }}>
           {errors.join("\n")}

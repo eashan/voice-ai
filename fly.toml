@@ -1,0 +1,43 @@
+# Fly.io config for the orchestrator (docs/DEPLOY.md). App name must be globally unique: change it if taken.
+app = "voiceforge-orchestrator"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/orchestrator/Dockerfile"
+
+[env]
+  ORCHESTRATOR_PORT = "8080"
+  DATA_DIR = "/data"
+  MAX_CONCURRENT_SESSIONS = "2"
+  MAX_CALL_SECONDS = "180"
+  SILENCE_HANGUP_SECONDS = "20"
+  DAILY_MINUTE_BUDGET = "60"
+  # DEMO_ENABLED, ALLOWED_ORIGINS and keys are Fly secrets.
+
+# Daily usage + latency logs survive restarts and auto-stop.
+[mounts]
+  source = "voiceforge_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Stop when idle to save money; first connection after idle wakes it (a few seconds).
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 4
+    hard_limit = 8
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/healthz"
+  timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

@@ -1,4 +1,4 @@
-// Usage: npx tsx scripts/stream-wav.ts <a.wav> [b.wav ...] [ws://host:port/ws]
+// Usage: npx tsx --env-file=.env scripts/stream-wav.ts <a.wav> [b.wav ...] [ws(s)://host/ws]
 // Headless stand-in for the browser mic. Streams each 16 kHz mono PCM16 WAV in real time (20 ms frames)
 // followed by silence, waits for the agent's reply to finish playing, then sends the next file — all in ONE
 // session, so conversation history and prompt caching are exercised.
@@ -6,8 +6,10 @@
 // Env:
 //   BARGE_IN_MS=800   start the next file 800 ms after the agent's audio starts (tests barge-in)
 //   OUT_WAV=out.wav   save all agent audio received to a WAV file
+//   SESSION_JWT_SECRET (from .env) is used to mint a session token, as the web app does after the invite code.
 import { readFileSync, writeFileSync } from "node:fs";
 import WebSocket from "ws";
+import { signSessionToken } from "@voiceforge/shared/sessionToken";
 
 const args = process.argv.slice(2);
 const url = args.at(-1)?.startsWith("ws") ? args.pop()! : "ws://localhost:8787/ws";
@@ -90,7 +92,10 @@ async function run() {
   ws.close();
 }
 
-ws.on("open", () => ws.send(JSON.stringify({ type: "start", token: "dev" })));
+const secret = process.env.SESSION_JWT_SECRET;
+if (!secret) throw new Error("SESSION_JWT_SECRET not set: run with --env-file=.env");
+const token = signSessionToken(secret, { wid: "ws_demo", aid: "agent_portfolio_concierge" });
+ws.on("open", () => ws.send(JSON.stringify({ type: "start", token })));
 ws.on("message", (data, isBinary) => {
   if (isBinary) {
     if (OUT_WAV) audioOut.push(Buffer.from(data as Buffer));
@@ -127,6 +132,10 @@ ws.on("message", (data, isBinary) => {
   } else if (msg.type === "error" || msg.type === "ended") {
     console.log(`\n${JSON.stringify(msg)}`);
   }
+});
+ws.on("unexpected-response", (_req, res) => {
+  console.log(`connection refused: HTTP ${res.statusCode} (origin not allowed?)`);
+  process.exit(1);
 });
 ws.on("close", () => {
   if (OUT_WAV && audioOut.length) {
