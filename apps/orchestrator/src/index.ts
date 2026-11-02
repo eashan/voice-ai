@@ -6,6 +6,8 @@ import { BrowserWsTransport } from "./transport/BrowserWsTransport.js";
 import { loadAgent } from "./config/loadAgent.js";
 import { ElevenLabsStt } from "./providers/elevenlabs/ElevenLabsStt.js";
 import { Session } from "./session/Session.js";
+import { ClaudeLlm } from "./providers/anthropic/ClaudeLlm.js";
+import { DeepgramTts } from "./providers/deepgram/DeepgramTts.js";
 
 const PORT = Number(process.env.ORCHESTRATOR_PORT ?? 8787);
 const agent = loadAgent();
@@ -14,6 +16,7 @@ if (process.env.ENDPOINTER === "provider_vad" || process.env.ENDPOINTER === "sil
   agent.turnTaking.endpointer = process.env.ENDPOINTER;
 }
 const stt = new ElevenLabsStt();
+const tts = new DeepgramTts();
 
 const http = createServer((req, res) => {
   if (req.url === "/healthz") {
@@ -41,7 +44,7 @@ wss.on("connection", (ws) => {
     }
     if (msg.type === "start" && !session) {
       // TODO(week 3): verify session JWT + caps before accepting.
-      session = new Session(sessionId, agent, transport, stt);
+      session = new Session(sessionId, agent, transport, stt, new ClaudeLlm(agent.llm), tts);
       try {
         await session.start();
       } catch (err) {
@@ -53,6 +56,9 @@ wss.on("connection", (ws) => {
       }
       transport.sendEvent({ type: "ready", sessionId, inputFormat: transport.inputFormat, outputFormat: transport.outputFormat });
       console.log(`[session ${sessionId}] started`);
+      session.greet();
+    } else if (msg.type === "playback_stopped") {
+      session?.onPlaybackStopped(msg.turnId, msg.playedMs);
     } else if (msg.type === "hangup") {
       transport.close();
     }

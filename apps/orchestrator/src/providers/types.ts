@@ -21,28 +21,40 @@ export interface SttProvider {
   }): Promise<SttSession>;
 }
 
-/** Streaming LLM turn; abort() is used for barge-in. */
+/** Streaming LLM turn; abort() is used for barge-in / speculative restarts. */
 export interface LlmTurn {
+  /** Text deltas as they arrive. Ends early (without throwing) if aborted. */
   textStream: AsyncIterable<string>;
   abort(): void;
-  /** Resolves when the stream ends (or is aborted). */
-  done: Promise<{ cacheReadInputTokens?: number }>;
+  /** Resolves when the stream ends or is aborted. Never rejects. */
+  done: Promise<LlmTurnResult>;
 }
+export interface LlmTurnResult {
+  text: string;
+  aborted: boolean;
+  error?: string;
+  refusal?: boolean;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+}
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
 export interface LlmProvider {
-  streamTurn(opts: {
-    system: string;
-    history: Array<{ role: "user" | "assistant"; content: string }>;
-  }): LlmTurn;
+  /** Write the static prefix (system prompt) to the prompt cache before the first turn. */
+  prewarm(system: string): Promise<void>;
+  streamTurn(opts: { system: string; history: ChatMessage[] }): LlmTurn;
 }
 
 /** Streaming TTS over one persistent connection per session. */
 export interface TtsSession {
-  /** Send one clause of text. */
+  /** Synthesize one chunk of text now (one clause/sentence). Chunks are spoken in order. */
   speak(text: string): void;
-  flush(): void;
-  /** Cancel current utterance (barge-in). */
+  /** Barge-in: cancel everything queued or in flight. Audio still arriving for it is discarded. */
   clear(): void;
   onAudio(handler: (chunk: Buffer, t: number) => void): void;
+  /** One speak() chunk has been fully synthesized (all of its audio delivered). */
+  onChunkDone(handler: () => void): void;
+  onError(handler: (code: string, message: string) => void): void;
   close(): Promise<void>;
 }
 export interface TtsProvider {

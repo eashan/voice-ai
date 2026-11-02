@@ -82,3 +82,38 @@ network + browser playout, so real end-to-end ≈ the PRD's 800 ms target).
   and cancel/restart only if the committed text differs. At endpoint the partial usually already matches the final,
   which takes STT finalization off the critical path. Fallback option: benchmark another STT provider behind `SttProvider`.
 - Default endpointer switched to `silero_vad` in `portfolio-concierge.json` (`ENDPOINTER=provider_vad` env var re-runs A).
+
+**2026-11-02 — Claude loop working; latency dominated by Mumbai ↔ US**
+- Functionally correct over a 4-turn session: accurate answers from the knowledge base, off-topic guardrail holds,
+  history carries over, and the session-start `max_tokens: 0` pre-warm makes **turn 0 a cache hit** (3,214 tokens read).
+- Speculative LLM start (LR-7) **never hit**: at endpoint (~300 ms after speech end) the ElevenLabs partial is missing
+  or cut mid-word (`"Tell me about paint formu-"`). Partials lag ~1 s (docs: ~1 s processing chunks). Now off by default
+  (`SPECULATIVE_LLM=1` to enable). Revisit with a different STT provider or if partial cadence improves.
+- Claude TTFT from the laptop ≈ 800 ms (`scripts/bench-llm-ttft.ts`), and **`message_start` itself arrives at ~800 ms**.
+  It doesn't change with prompt size, caching, thinking on/off, or model (Haiku 5.5 ≈ Haiku 4.5 ≈ Sonnet 5.5 ≈ 780–800 ms).
+- Root cause: geography. From Mumbai, a trivial Anthropic API call has 330–450 ms time-to-first-byte (TCP connect 12 ms is a
+  CDN edge, not the origin); Deepgram TCP connect alone is 215–405 ms. Model-side TTFT is therefore roughly 350–450 ms.
+- **Implication: latency must be measured from the deployed orchestrator in US-East (Fly `iad`), not the laptop.**
+  Pull the week-1 region probe + deploy forward.
+- Open product question: browser ↔ orchestrator distance is outside "server V2V" but users feel it. If the demo audience
+  is mostly in India, a US orchestrator adds ~250 ms each way for audio; providers' US-only origins make an India
+  orchestrator slower overall. Decide when the demo audience is clearer.
+
+**2026-11-02 — TTS + barge-in working (Deepgram Aura streaming)**
+- `DeepgramTts`: one persistent WS per call (`Speak` + `Flush` per chunk → audio → `Flushed`). After `Clear`, audio already
+  in flight keeps arriving until `Cleared` (~400 ms from Mumbai), so it's discarded. Reconnects lazily if Deepgram drops it.
+- TTS first byte ≈ **250–320 ms from Mumbai** (expect ~100–150 ms from `iad`). Audio streams at ~2× real time; no playback
+  underruns logged across test turns.
+- Each chunk's audio starts with **~90 ms of silence (once 460 ms)**. The speaker trims leading silence from the first
+  audio of every reply (20 ms pre-roll, max 300 ms trim), and `audio_first_out` marks the first *audible* frame.
+- `ClauseChunker` ramps chunk sizes: clause ≥2 words → clause ≥6 words → sentences ≥15 words. Keeps first audio fast
+  and Deepgram flushes at ~3–4 per reply. LLM-first-token → first TTS send is still **150–220 ms** (waiting for a
+  boundary / hard cut at 10 words): a tuning knob for the `iad` measurement.
+- Server V2V from the laptop: **~1.7–2.1 s** (endpointing ~300 + STT finalize ~350 + Claude TTFT ~800 + chunking ~200 +
+  TTS ~280). Claude TTFT and TTS TTFB are mostly Mumbai↔US distance, so this is not a meaningful number until deployed.
+- Barge-in: Silero speech start (≥96 ms voiced) during THINKING/SPEAKING → abort Claude, `Clear` TTS, `stop_playback`.
+  History keeps only what was heard (server playhead estimate, refined by the client's exact `playedMs`).
+  If nothing was heard yet, the user's new speech is **merged with their previous utterance** (`"Tell me about. His work
+  at Kodo."`), which also fixes being cut off by a mid-sentence pause longer than `silenceMs`.
+- Known limits: a noise blip during agent speech still cuts the agent off (no resume). Without headphones, barge-in relies
+  on browser echo cancellation; validate on speakers before the public demo.

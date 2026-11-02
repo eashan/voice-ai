@@ -22,6 +22,11 @@ export interface TurnLatencyRecord {
   /** audio_first_out − speech_end. Excludes network + browser playout. */
   serverV2vMs: number | null;
   interrupted: boolean;
+  /** Speculative LLM start on the partial transcript: hit = kept, miss = restarted on final, off = not used. */
+  speculative?: "hit" | "miss" | "off";
   cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+  userText?: string;
+  agentText?: string;
   wallClock: string;
 }

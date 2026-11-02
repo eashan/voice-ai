@@ -1,21 +1,138 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { ServerMessage } from "@voiceforge/shared";
+import type { AgentState, ClientMessage, LatencyStage, ServerMessage, TurnLatencyRecord } from "@voiceforge/shared";
 
 const WS_URL = process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? "ws://localhost:8787/ws";
 const SAMPLE_RATE = 16000;
 
+interface Turn {
+  id: number;
+  partial: string;
+  user: string;
+  agent: string;
+  record?: TurnLatencyRecord;
+}
+
+const STATE_COLORS: Record<AgentState, string> = {
+  listening: "#2a7",
+  user_speaking: "#27a",
+  thinking: "#a72",
+  speaking: "#72a",
+};
+
+/** Waterfall segments: [label, from-stage, to-stage, color]. */
+const SEGMENTS: Array<[string, LatencyStage, LatencyStage, string]> = [
+  ["endpointing", "speech_end", "endpoint", "#7aa2f7"],
+  ["STT finalize", "endpoint", "stt_final", "#9ece6a"],
+  ["LLM TTFT", "llm_request", "llm_first_token", "#e0af68"],
+  ["TTS first byte", "tts_first_send", "tts_first_byte", "#bb9af7"],
+];
+
+function Waterfall({ record }: { record: TurnLatencyRecord }) {
+  const s = record.stages;
+  const origin = s.speech_end;
+  if (origin == null) return null;
+  const end = Math.max(...Object.values(s).filter((v): v is number => v != null));
+  const total = Math.max(end - origin, 1);
+  return (
+    <div style={{ marginTop: 8 }}>
+      {SEGMENTS.map(([label, from, to, color]) => {
+        const a = s[from];
+        const b = s[to];
+        if (a == null || b == null) return null;
+        return (
+          <div key={label} style={{ display: "flex", alignItems: "center", fontSize: 12, height: 18 }}>
+            <span style={{ width: 110, color: "#666" }}>{label}</span>
+            <div style={{ position: "relative", flex: 1, height: 10, background: "#f0f0f0", borderRadius: 2 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${((a - origin) / total) * 100}%`,
+                  width: `${Math.max(((b - a) / total) * 100, 0.5)}%`,
+                  height: "100%",
+                  background: color,
+                  borderRadius: 2,
+                }}
+              />
+            </div>
+            <span style={{ width: 60, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{(b - a).toFixed(0)} ms</span>
+          </div>
+        );
+      })}
+      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+        speech end → first LLM token:{" "}
+        <b>{s.llm_first_token != null ? `${(s.llm_first_token - origin).toFixed(0)} ms` : "–"}</b>
+        {record.serverV2vMs != null && (
+          <>
+            {" "}
+            · server V2V: <b>{record.serverV2vMs.toFixed(0)} ms</b>
+          </>
+        )}
+        {record.cacheReadInputTokens != null && <> · cache read {record.cacheReadInputTokens} tok</>}
+      </div>
+    </div>
+  );
+}
+
 export default function Page() {
   const [status, setStatus] = useState<"idle" | "connecting" | "live">("idle");
-  const [log, setLog] = useState<string[]>([]);
+  const [agentState, setAgentState] = useState<AgentState | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const playheadRef = useRef(0);
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  /** Audio scheduled for the current reply (since its audio_start), to report exactly how much was played. */
+  const replyRef = useRef<{ turnId: number; spans: Array<[number, number]> } | null>(null);
 
-  const push = (line: string) => setLog((l) => [...l.slice(-30), line]);
+  const send = (msg: ClientMessage) =>
+    wsRef.current?.readyState === WebSocket.OPEN && wsRef.current.send(JSON.stringify(msg));
+
+  const updateTurn = (id: number, fn: (t: Turn) => Turn) =>
+    setTurns((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
+      if (idx === -1) return [...prev, fn({ id, partial: "", user: "", agent: "" })];
+      const next = [...prev];
+      next[idx] = fn(next[idx]!);
+      return next;
+    });
+
+  function onServerMessage(msg: ServerMessage) {
+    switch (msg.type) {
+      case "ready":
+        setStatus("live");
+        break;
+      case "transcript":
+        updateTurn(msg.turnId, (t) => (msg.final ? { ...t, user: msg.text, partial: "" } : { ...t, partial: msg.text }));
+        break;
+      case "state":
+        setAgentState(msg.state);
+        break;
+      case "audio_start":
+        replyRef.current = { turnId: msg.turnId, spans: [] };
+        break;
+      case "agent_text":
+        updateTurn(msg.turnId, (t) => ({ ...t, agent: t.agent + msg.text }));
+        break;
+      case "turn_complete":
+        // agentText = what was actually spoken (truncated on barge-in).
+        updateTurn(msg.record.turnId, (t) => ({ ...t, record: msg.record, agent: msg.record.agentText ?? t.agent }));
+        break;
+      case "stop_playback": {
+        const playedMs = stopPlayback();
+        const reply = replyRef.current;
+        if (reply) send({ type: "playback_stopped", reason: "barge_in", turnId: reply.turnId, playedMs });
+        replyRef.current = null;
+        break;
+      }
+      case "error":
+        setErrors((e) => [...e.slice(-4), `${msg.code}: ${msg.message}`]);
+        break;
+    }
+  }
 
   function playPcm(data: ArrayBuffer) {
     const ctx = ctxRef.current;
@@ -30,18 +147,25 @@ export default function Page() {
     const startAt = Math.max(ctx.currentTime + 0.02, playheadRef.current);
     src.start(startAt);
     playheadRef.current = startAt + buf.duration;
+    replyRef.current?.spans.push([startAt, buf.duration]);
     sourcesRef.current.push(src);
     src.onended = () => (sourcesRef.current = sourcesRef.current.filter((s) => s !== src));
   }
 
-  function stopPlayback() {
+  /** Stop all audio now; returns ms of the current reply that were actually played. */
+  function stopPlayback(): number {
+    const t = ctxRef.current?.currentTime ?? 0;
+    const played = (replyRef.current?.spans ?? []).reduce((acc, [start, dur]) => acc + Math.min(Math.max(t - start, 0), dur), 0);
     sourcesRef.current.forEach((s) => s.stop());
     sourcesRef.current = [];
     playheadRef.current = 0;
+    return Math.round(played * 1000);
   }
 
   async function start() {
     setStatus("connecting");
+    setTurns([]);
+    setErrors([]);
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     });
@@ -55,10 +179,7 @@ export default function Page() {
     ws.onopen = () => ws.send(JSON.stringify({ type: "start", token: "dev" }));
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return playPcm(ev.data as ArrayBuffer);
-      const msg = JSON.parse(ev.data) as ServerMessage;
-      if (msg.type === "ready") setStatus("live");
-      if (msg.type === "stop_playback") stopPlayback();
-      push(JSON.stringify(msg));
+      onServerMessage(JSON.parse(ev.data) as ServerMessage);
     };
     ws.onclose = () => stop();
     node.port.onmessage = (e) => ws.readyState === WebSocket.OPEN && ws.send(e.data as ArrayBuffer);
@@ -71,24 +192,58 @@ export default function Page() {
   function stop() {
     wsRef.current?.close();
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    ctxRef.current?.close();
+    void ctxRef.current?.close();
     wsRef.current = null;
     ctxRef.current = null;
     streamRef.current = null;
     playheadRef.current = 0;
+    replyRef.current = null;
+    setAgentState(null);
     setStatus("idle");
   }
 
   return (
     <main>
-      <h1>VoiceForge</h1>
-      <p>M0 demo — week 1 loopback (you should hear yourself; use headphones).</p>
+      <h1 style={{ marginBottom: 4 }}>VoiceForge</h1>
+      <p style={{ color: "#666", marginTop: 0 }}>
+        Ask about Eashan&apos;s experience. Interrupt any time. Use headphones so the agent doesn&apos;t hear itself.
+        Latencies are server-measured.
+      </p>
       <button onClick={status === "idle" ? start : stop} style={{ fontSize: 18, padding: "12px 24px" }}>
-        {status === "idle" ? "Talk" : status === "connecting" ? "Connecting…" : "Hang up"}
+        {status === "idle" ? "🎙 Talk" : status === "connecting" ? "Connecting…" : "Hang up"}
       </button>
-      <pre style={{ background: "#f4f4f4", padding: 12, marginTop: 24, fontSize: 12, whiteSpace: "pre-wrap" }}>
-        {log.join("\n")}
-      </pre>
+      {status === "live" && agentState && (
+        <span style={{ marginLeft: 12, color: STATE_COLORS[agentState] }}>● {agentState.replace("_", " ")}</span>
+      )}
+
+      {errors.length > 0 && (
+        <pre style={{ background: "#fee", color: "#900", padding: 8, fontSize: 12, whiteSpace: "pre-wrap" }}>
+          {errors.join("\n")}
+        </pre>
+      )}
+
+      <div style={{ marginTop: 24 }}>
+        {turns.map((t) => (
+          <div key={t.id} style={{ borderBottom: "1px solid #eee", padding: "12px 0" }}>
+            {t.id >= 0 && (
+              <div>
+                <b>You:</b> {t.user || <i style={{ color: "#999" }}>{t.partial || "…"}</i>}
+              </div>
+            )}
+            {(t.agent || t.record?.interrupted) && (
+              <div style={{ marginTop: 6 }}>
+                <b>Agent:</b> {t.agent}
+                {t.record?.interrupted && (
+                  <i style={{ color: "#c60" }}>
+                    {t.agent ? " (interrupted)" : "(you kept talking: merged into the next turn)"}
+                  </i>
+                )}
+              </div>
+            )}
+            {t.record && <Waterfall record={t.record} />}
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
