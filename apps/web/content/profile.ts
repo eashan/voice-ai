@@ -43,6 +43,17 @@ export const PROFILE = {
     "AI Product Manager with 5+ years of product management and 3 years of software development, most of it spent building voice AI agents for enterprise B2B SaaS customers.",
   summary:
     "AI Product Manager with 5+ years of product management and 3 years of software development, most of it spent building voice AI agents for enterprise B2B SaaS customers. Took JustCall's AI Voice Agent from 0→1 to about $1M ARR, and led a team of 3 PMs at Skit.ai building ~10 voice agents for debt collection, insurance renewal, and lead qualification. Owned the roadmap for Kodo's fintech Procure-to-Pay (P2P) platform, built LLM evals and guardrails into the AI products shipped, and lifted trial user activation 25% (relative).",
+  /** Home hero (Home artboard). */
+  tagline: "AI Product Manager · AI Voice Agents · Fintech Automation · LLM Evals",
+  pitch:
+    "5+ years in product, 3 writing code. I took JustCall's AI Voice Agent from 0→1 to about $1M ARR, and now build agentic fintech workflows at Kodo.",
+  /** Highlights strip: every number is from the résumé. */
+  highlights: [
+    { value: "~$1M ARR", label: "JustCall AI Voice Agent, 0→1" },
+    { value: "$450K", label: "Contracted ARR from 4 voice-agent pilots, Skit.ai" },
+    { value: "+25%", label: "Trial user activation, Kodo Reporting Agent" },
+    { value: "80%", label: "Faster go-live for debt-collection voice agents" },
+  ],
   contact: CONTACT,
   /** Phone-free web copy of the résumé. null until one exists (the original PDF has the phone number). */
   resumePdf: null as string | null,

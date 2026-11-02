@@ -11,7 +11,8 @@ export const AgentConfigSchema = z.object({
   llm: z.object({
     model: z.string().default("claude-haiku-5-5"),
     thinking: z.enum(["disabled", "adaptive"]).default("disabled"),
-    effort: z.enum(["low", "medium", "high"]).default("low"),
+    /** Omit for models without the effort parameter (e.g. Haiku 4.5). */
+    effort: z.enum(["low", "medium", "high"]).optional(),
     maxTokens: z.number().int().positive().default(300),
   }),
   voice: z.object({

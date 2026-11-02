@@ -72,6 +72,7 @@ export class Gate {
     return {
       enabled: LIMITS.enabled,
       activeCalls: this.active.size,
+      maxConcurrent: LIMITS.maxConcurrent,
       budgetLeftMinutes: Math.max(0, Math.floor(this.budgetLeftSeconds() / 60)),
     };
   }

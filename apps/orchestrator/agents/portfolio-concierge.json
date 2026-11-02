@@ -6,9 +6,8 @@
   "greeting": "Hi! I'm Eashan's voice assistant. Ask me anything about his experience or projects.",
   "systemPromptFile": "portfolio-concierge.prompt.md",
   "llm": {
-    "model": "claude-haiku-5-5",
+    "model": "claude-haiku-4-5",
     "thinking": "disabled",
-    "effort": "low",
     "maxTokens": 300
   },
   "voice": {
@@ -39,7 +38,7 @@
   },
   "turnTaking": {
     "endpointer": "silero_vad",
-    "silenceMs": 300,
+    "silenceMs": 200,
     "bargeIn": true
   }
 }

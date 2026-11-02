@@ -49,6 +49,8 @@ Environment variables (Production):
 | `SESSION_JWT_SECRET` | same as in `.env.deploy` |
 | `DEMO_INVITE_CODE` | from `.env.deploy` |
 | `ORCHESTRATOR_WS_URL` | `wss://voiceforge-orchestrator.fly.dev/ws` |
+| `TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (optional: opens the concierge without a code) |
+| `TURNSTILE_SECRET_KEY` | Turnstile secret key (both must be set; redeploy after adding) |
 
 Then lock the orchestrator to the site's origin:
 ```bash

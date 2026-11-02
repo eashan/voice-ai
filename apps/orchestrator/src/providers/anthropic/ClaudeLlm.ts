@@ -9,8 +9,8 @@ const client = () => (sharedClient ??= new Anthropic());
 const REFUSAL_LINE = "Sorry, I can't help with that one. Ask me anything about Eashan's work.";
 
 /**
- * Claude streaming for voice. Settings come from the agent config (M0: Haiku 5.5, thinking off,
- * effort low). The system prompt carries an explicit cache breakpoint; top-level automatic caching
+ * Claude streaming for voice. Settings come from the agent config (concierge: Haiku 4.5, thinking off,
+ * no effort parameter). The system prompt carries an explicit cache breakpoint; top-level automatic caching
  * covers the growing conversation tail.
  */
 export class ClaudeLlm implements LlmProvider {
@@ -21,7 +21,8 @@ export class ClaudeLlm implements LlmProvider {
     return {
       model: this.cfg.model,
       thinking: this.cfg.thinking === "disabled" ? ({ type: "disabled" } as const) : ({ type: "adaptive" } as const),
-      output_config: { effort: this.cfg.effort },
+      // Models without the effort parameter (Haiku 4.5) reject output_config.effort.
+      ...(this.cfg.effort ? { output_config: { effort: this.cfg.effort } } : {}),
       system: [{ type: "text" as const, text: system, cache_control: { type: "ephemeral" as const } }],
     };
   }

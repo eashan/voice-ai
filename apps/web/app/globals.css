@@ -98,6 +98,32 @@ a:hover {
   }
 }
 
+/* Floating transcript: wide screens only (phones get none, by design). */
+.transcript-panel {
+  display: none;
+}
+@media (min-width: 900px) {
+  .transcript-panel {
+    display: flex;
+    animation: panelIn 240ms ease-out;
+  }
+}
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-50% + 8px));
+  }
+}
+.transcript-turn {
+  animation: turnIn 320ms ease-out;
+}
+@keyframes turnIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

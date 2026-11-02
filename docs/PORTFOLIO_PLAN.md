@@ -145,6 +145,23 @@ M1 hook: tool calls (`lookup_policy`, `book_slot`, `create_payment_plan`) via th
 - Design source: `docs/portfolio-design/` (artboards exported as source, with a README on how to read them). Port the markup and inline styles from there; don't recreate them from screenshots. Tokens and component specs above are canonical where the canvas and this doc differ. Re-export if the canvas changes.
 - `docs/DEPLOY.md` has uncommitted local changes that predate this plan. Commit or stash them before branching.
 
+## Step 3 decisions (2026-11-03)
+
+- **Concierge access:** Cloudflare Turnstile (`appearance: interaction-only`) checked by `/api/session`. Until both
+  `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set, the hero shows an invite-code field instead.
+- **"Email me":** kept; the address is assembled on click and never appears in the HTML. Nav "Contact" → LinkedIn.
+- **Transcript:** a floating panel on the right during a call, max 2 turns, oldest slides up under a fade, lingers 4 s
+  after the call. **Hidden below 900px**: phones get no transcript.
+- **Latency:** concierge on `claude-haiku-4-5` (no `effort` param; no prompt cache: under its 4,096-token minimum) and
+  `silenceMs` 200. `effort` is now optional in the agent schema.
+- **Prompt:** `portfolio-concierge.prompt.md` is generated: `npx tsx scripts/gen-concierge-prompt.ts` (rules in
+  `portfolio-concierge.template.md`, knowledge from `apps/web/content/profile.ts`; `--check` to verify). The
+  "sub-second" claim is gone; the agent never quotes a response time.
+- **Measured after the switch** (Fly `iad`, 16 turns, server clock): V2V p50 **1,114 ms** (was 1,151–1,438); endpointing
+  p50 212, STT finalize 85, LLM TTFT p50 **384** (was ~540; one 1,637 outlier), chunker wait p50 **211**, TTS first
+  byte 126, first audible out 78. Still above the 700 ms bar; the next lever is the chunker wait (first chunk sooner).
+- **Availability:** `/api/status` proxies the orchestrator's `/healthz` (also the Fly pre-warm) → `ready | busy | resting`.
+
 ## What you need to do yourself
 
 - [x] Pick a direction: B + C, light and dark.

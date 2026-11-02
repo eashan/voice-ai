@@ -6,6 +6,7 @@
 // Env:
 //   BARGE_IN_MS=800   start the next file 800 ms after the agent's audio starts (tests barge-in)
 //   OUT_WAV=out.wav   save all agent audio received to a WAV file
+//   ORIGIN=https://…  Origin header to send (needed against the deployed orchestrator)
 //   SESSION_JWT_SECRET (from .env) is used to mint a session token, as the web app does after the invite code.
 import { readFileSync, writeFileSync } from "node:fs";
 import WebSocket from "ws";
@@ -47,7 +48,8 @@ function wavFile(pcm: Buffer): Buffer {
   return Buffer.concat([h, pcm]);
 }
 
-const ws = new WebSocket(url);
+// ORIGIN=https://voiceforge-eashan.vercel.app when the orchestrator has ALLOWED_ORIGINS set (the JWT is the real gate).
+const ws = new WebSocket(url, process.env.ORIGIN ? { origin: process.env.ORIGIN } : {});
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const audioOut: Buffer[] = [];
 let started = false;
