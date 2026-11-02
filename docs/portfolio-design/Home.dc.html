@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Eashan Kadam: Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:#2346FF}
+@keyframes ringH{0%,100%{opacity:.35}50%{opacity:1}}
+</style>
+</helmet>
+<div style="min-height: 1300px; background: {{ t.bg }}; color: {{ t.ink }}; font-family: 'Inter Tight', system-ui, sans-serif; box-sizing: border-box; padding: 0 24px 72px">
+  <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column">
+
+    <nav aria-label="Primary" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid {{ t.line }}">
+      <a href="#top" style="font-weight: 800; font-size: 18px; text-decoration: none; letter-spacing: -0.02em">eashan.kadam</a>
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+        <a href="#demos" style="text-decoration: none; min-height: 44px; display: inline-flex; align-items: center">01 Demos</a>
+        <a href="Playground.dc.html" style="text-decoration: none; min-height: 44px; display: inline-flex; align-items: center">02 Playground</a>
+        <a href="Experience.dc.html" style="text-decoration: none; min-height: 44px; display: inline-flex; align-items: center">03 Experience</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button type="button" onClick="{{ flipTheme }}" aria-label="{{ themeLabel }}" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+          <sc-if value="{{ dark }}" hint-placeholder-val="{{ false }}">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+          </sc-if>
+          <sc-if value="{{ light }}" hint-placeholder-val="{{ true }}">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+          </sc-if>
+        </button>
+        <a href="#contact" style="font-size: 15px; font-weight: 500; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 8px">Contact ↗</a>
+      </div>
+    </nav>
+
+    <section id="top" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 22px; padding: 48px 0 64px">
+      <div style="position: relative; width: 280px; height: 280px; display: flex; align-items: center; justify-content: center">
+        <div aria-hidden="true" style="position: absolute; inset: 0">
+          <sc-for list="{{ ring }}" as="r" hint-placeholder-count="48">
+            <span style="position: absolute; left: 139px; top: 0; width: 2px; height: {{ r.h }}; border-radius: 2px; background: {{ r.color }}; transform-origin: 1px 140px; transform: {{ r.rot }}; animation: {{ r.anim }}"></span>
+          </sc-for>
+        </div>
+        <img src="../portfolio-assets/eashan-headshot.jpg" alt="Eashan Kadam" style="width: 188px; height: 188px; border-radius: 50%; object-fit: cover; border: 3px solid {{ t.bg }}; box-shadow: 0 0 0 1px {{ t.line }}">
+      </div>
+
+      <div style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid {{ t.line }}; border-radius: 999px; padding: 8px 16px; font-size: 14px; color: {{ t.body }}">AI Product Manager · AI Voice Agents · Fintech Automation · LLM Evals</div>
+
+      <h1 style="margin: 0; font-weight: 800; font-size: clamp(64px, 11vw, 160px); line-height: 0.88; letter-spacing: -0.055em">Eashan Kadam</h1>
+
+      <p style="margin: 0; max-width: 600px; font-size: 20px; line-height: 1.5; color: {{ t.body }}">5+ years in product, 3 writing code. I took JustCall's AI Voice Agent from 0→1 to about $1M ARR, and now build agentic fintech workflows at Kodo.</p>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding-top: 6px">
+        <button type="button" onClick="{{ toggle }}" aria-pressed="{{ on }}" style="display: inline-flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 26px 0 10px; border-radius: 999px; border: 1px solid {{ t.accent }}; background: {{ btnBg }}; color: {{ btnFg }}; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 600; cursor: pointer">
+          <span aria-hidden="true" style="width: 38px; height: 38px; border-radius: 50%; background: {{ dotBg }}; display: flex; align-items: center; justify-content: center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ dotFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
+          </span>
+          <span>{{ label }}</span>
+        </button>
+        <a href="#contact" style="display: inline-flex; align-items: center; min-height: 56px; padding: 0 24px; border-radius: 999px; border: 1px solid {{ t.line }}; font-size: 17px; font-weight: 500; text-decoration: none; box-sizing: border-box">Email me</a>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+        <sc-for list="{{ stages }}" as="s" hint-placeholder-count="4">
+          <span style="border: 1px solid {{ t.line }}; background: {{ t.surface }}; border-radius: 8px; padding: 8px 12px; color: {{ t.body }}">{{ s.name }} <span style="color: {{ s.color }}; font-weight: 500">{{ s.ms }}</span></span>
+        </sc-for>
+      </div>
+      <p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ t.muted }}">{{ hint }}</p>
+    </section>
+
+    <section aria-label="Highlights" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; padding: 32px 0; border-top: 1px solid {{ t.strong }}; border-bottom: 1px solid {{ t.line }}">
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em">~$1M ARR</span><span style="font-size: 14px; color: {{ t.muted }}">JustCall AI Voice Agent, 0→1</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em">$450K</span><span style="font-size: 14px; color: {{ t.muted }}">Contracted ARR from 4 voice-agent pilots, Skit.ai</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em">+25%</span><span style="font-size: 14px; color: {{ t.muted }}">Trial user activation, Kodo Reporting Agent</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em">80%</span><span style="font-size: 14px; color: {{ t.muted }}">Faster go-live for debt-collection voice agents</span></div>
+    </section>
+
+    <section id="demos" style="display: flex; flex-direction: column; gap: 24px; padding-top: 64px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px">
+        <h2 style="margin: 0; font-size: 40px; font-weight: 800; letter-spacing: -0.03em">Live voice demos</h2>
+        <a href="Playground.dc.html" style="font-family: 'JetBrains Mono', monospace; font-size: 13px">Edit the system prompt yourself →</a>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px">
+        <sc-for list="{{ demos }}" as="d" hint-placeholder-count="3">
+          <article style="background: {{ t.surface }}; border: 1px solid {{ t.line }}; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ t.muted }}">
+              <span>{{ d.num }} · {{ d.id }}</span>
+              <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: {{ t.ok }}"></span>ready</span>
+            </div>
+            <h3 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">{{ d.title }}</h3>
+            <p style="margin: 0; font-size: 15px; line-height: 1.55; color: {{ t.body }}">{{ d.body }}</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px">
+              <button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: none; background: {{ t.ink }}; color: {{ t.bg }}; font-family: 'Inter Tight', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer">Call the agent</button>
+              <a href="Playground.dc.html" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{ t.line }}; font-size: 15px; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box">View prompt</a>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+      <p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ t.muted }}">Demos use fictional companies and customers. Best with headphones.</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { on: false, dark: null }; }
+  renderVals() {
+    const dark = this.state.dark ?? (this.props.dark === true || this.props.dark === 'true');
+    const t = dark
+      ? { bg: '#0A0F1C', ink: '#E7ECF5', body: '#B4BED0', muted: '#8F9BB3', line: '#22304D', strong: '#E7ECF5', surface: '#101830', accent: '#7C93FF', accentInk: '#0A0F1C', ringIdle: '#2C3B5E', ok: '#3DD68C' }
+      : { bg: '#FFFFFF', ink: '#0A0A0A', body: '#4A4A4A', muted: '#5C5C5C', line: '#E6E6E6', strong: '#0A0A0A', surface: '#F6F7FA', accent: '#2346FF', accentInk: '#FFFFFF', ringIdle: '#D5D9E3', ok: '#12A150' };
+    const on = this.state.on;
+    const ring = [];
+    for (let i = 0; i < 48; i++) {
+      ring.push({
+        h: (on ? 14 + ((i * 37) % 26) : 10) + 'px',
+        rot: 'rotate(' + (i * 7.5) + 'deg)',
+        color: on ? t.accent : t.ringIdle,
+        anim: on ? ('ringH ' + (0.8 + (i % 6) * 0.15) + 's ease-in-out infinite') : 'none'
+      });
+    }
+    const v = (ms) => (on ? ms : '—');
+    const c = on ? t.accent : t.muted;
+    return {
+      t, on, ring, dark, light: !dark,
+      flipTheme: () => this.setState({ dark: !dark }),
+      themeLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
+      toggle: () => this.setState({ on: !this.state.on }),
+      label: on ? 'Listening… tap to hang up' : 'Talk to my AI about me',
+      btnBg: on ? 'transparent' : t.accent,
+      btnFg: on ? t.ink : t.accentInk,
+      dotBg: on ? t.accent : t.accentInk,
+      dotFg: on ? t.accentInk : t.accent,
+      stages: [
+        { name: 'endpoint', ms: v('320ms'), color: c },
+        { name: 'stt', ms: v('130ms'), color: c },
+        { name: 'llm_ttft', ms: v('540ms'), color: c },
+        { name: 'tts', ms: v('130ms'), color: c }
+      ],
+      hint: on ? 'LAST TURN · SERVER CLOCK · TRY: “WHAT DID EASHAN SHIP AT JUSTCALL?”' : 'EVERY TURN SHOWS ITS OWN LATENCY · INTERRUPT ANYTIME · NO SIGN-UP',
+      demos: [
+        { num: '01', id: 'debt-collection', title: 'Debt collection agent', body: 'Payment reminder, plan negotiation and dispute handling, with identity check and disclosures first.' },
+        { num: '02', id: 'insurance-support', title: 'Insurance support agent', body: 'Policy questions, first notice of loss and renewal callbacks.' },
+        { num: '03', id: 'roofing-support', title: 'Roofing support agent', body: 'Lead qualification, storm-damage intake and inspection booking.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

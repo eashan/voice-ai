@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agent Playground</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0F1C}
+a{color:#E7ECF5}a:hover{color:#7C93FF}
+textarea:focus{outline:2px solid #7C93FF;outline-offset:2px}
+@keyframes ringP{0%,100%{opacity:.35}50%{opacity:1}}
+</style>
+</helmet>
+<div style="min-height: 1060px; background: #0A0F1C; color: #E7ECF5; font-family: 'Inter Tight', system-ui, sans-serif; box-sizing: border-box; padding: 0 24px 64px">
+  <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+    <nav aria-label="Primary" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid #22304D">
+      <a href="Home.dc.html" style="font-weight: 800; font-size: 18px; text-decoration: none; letter-spacing: -0.02em">eashan.kadam</a>
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+        <a href="Home.dc.html" style="text-decoration: none; color: #B4BED0">01 Demos</a>
+        <a href="#top" style="text-decoration: none; border-bottom: 2px solid #7C93FF; padding-bottom: 4px">02 Playground</a>
+        <a href="Experience.dc.html" style="text-decoration: none; color: #B4BED0">03 Experience</a>
+      </div>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #3DD68C; border: 1px solid #22304D; border-radius: 999px; padding: 8px 14px">● invite unlocked</span>
+    </nav>
+
+    <header id="top" style="display: flex; flex-direction: column; gap: 8px">
+      <h1 style="margin: 0; font-size: 56px; font-weight: 800; letter-spacing: -0.045em; line-height: 1">Agent playground</h1>
+      <p style="margin: 0; max-width: 680px; font-size: 18px; line-height: 1.5; color: #B4BED0">Pick an agent, rewrite its system prompt, then call it. Your prompt runs for this call only.</p>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+      <section aria-label="Prompt editor" style="flex: 999 1 560px; min-width: 0; background: #101830; border: 1px solid #22304D; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+        <div role="tablist" aria-label="Base agent" style="display: flex; flex-wrap: wrap; gap: 6px; background: #0A0F1C; border: 1px solid #22304D; border-radius: 12px; padding: 4px">
+          <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+            <button type="button" role="tab" aria-selected="{{ tb.sel }}" onClick="{{ tb.pick }}" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: none; background: {{ tb.bg }}; color: {{ tb.fg }}; font-family: 'Inter Tight', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer">{{ tb.name }}</button>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; border: 1px dashed #2C3B5E; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #8F9BB3">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          <span>Safety rules run before your prompt and can't be edited: fictional company only, never collects real card, bank or ID numbers, no threats.</span>
+        </div>
+
+        <label for="sysprompt" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B4BED0">system_prompt</label>
+        <textarea id="sysprompt" value="{{ prompt }}" onChange="{{ edit }}" rows="16" style="width: 100%; box-sizing: border-box; resize: vertical; background: #0A0F1C; color: #E7ECF5; border: 1px solid #22304D; border-radius: 12px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6"></textarea>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ countColor }}">{{ count }} / 4,000 chars</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <button type="button" onClick="{{ reset }}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #2C3B5E; background: transparent; color: #E7ECF5; font-family: 'Inter Tight', sans-serif; font-size: 15px; cursor: pointer">Reset to default</button>
+            <button type="button" onClick="{{ toggle }}" style="min-height: 44px; padding: 0 20px; border-radius: 999px; border: none; background: {{ callBg }}; color: {{ callFg }}; font-family: 'Inter Tight', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer">{{ callLabel }}</button>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Live call" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <div style="background: #101830; border: 1px solid #22304D; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px">
+          <div style="position: relative; width: 168px; height: 168px; display: flex; align-items: center; justify-content: center">
+            <div aria-hidden="true" style="position: absolute; inset: 0">
+              <sc-for list="{{ ring }}" as="r" hint-placeholder-count="40">
+                <span style="position: absolute; left: 83px; top: 0; width: 2px; height: {{ r.h }}; border-radius: 2px; background: {{ r.color }}; transform-origin: 1px 84px; transform: {{ r.rot }}; animation: {{ r.anim }}"></span>
+              </sc-for>
+            </div>
+            <div style="width: 104px; height: 104px; border-radius: 50%; background: #16203A; border: 1px solid #2C3B5E; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #B4BED0">{{ agentShort }}</div>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ stateColor }}">{{ stateLabel }}</span>
+        </div>
+
+        <div style="background: #101830; border: 1px solid #22304D; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #B4BED0">transcript</h2>
+          <sc-for list="{{ lines }}" as="l" hint-placeholder-count="3">
+            <div style="display: flex; gap: 10px; font-size: 14px; line-height: 1.5">
+              <span style="flex: 0 0 52px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{ l.color }}; padding-top: 2px">{{ l.who }}</span>
+              <span style="color: #E7ECF5">{{ l.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: #101830; border: 1px solid #22304D; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <h2 style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #B4BED0">turn 2 · latency waterfall</h2>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #7C93FF">server V2V 1,220ms</span>
+          </div>
+          <sc-for list="{{ water }}" as="w" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+              <span style="flex: 0 0 72px; color: #B4BED0">{{ w.name }}</span>
+              <div style="flex: 1 1 auto; height: 10px; position: relative; background: #0A0F1C; border-radius: 4px">
+                <div style="position: absolute; top: 0; bottom: 0; left: {{ w.left }}; width: {{ w.width }}; background: {{ w.color }}; border-radius: 4px"></div>
+              </div>
+              <span style="flex: 0 0 48px; text-align: right; color: #E7ECF5">{{ w.ms }}</span>
+            </div>
+          </sc-for>
+          <p style="margin: 0; font-size: 12px; color: #8F9BB3">Measured on the orchestrator's clock, speech end → first audible audio. Your network adds to this.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1060}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.defaults = [
+      'You are Riya, a collections agent for Brightline Finance (a fictional lender). You are calling about an overdue personal loan EMI.\n\nFlow:\n1. Confirm you are speaking to the account holder: ask for their date of birth before discussing any debt.\n2. Say clearly that this is an attempt to collect a debt.\n3. State the overdue amount and due date. Ask if they can pay today.\n4. If not, offer a plan: up to 3 instalments. Confirm the dates back to them.\n5. If they dispute the debt, log the dispute and promise a written follow-up. Do not push.\n\nTone: calm, respectful, never threatening. Never ask for card or bank numbers; payment happens through a secure link sent later.',
+      'You are Sam, a support agent for Harbor Mutual (a fictional insurer). Help callers with policy questions, start a claim (first notice of loss), or book a renewal callback.\n\nFor a claim: get the policy number, date and place of the incident, what happened, and whether anyone was hurt. Read the summary back before closing.\n\nNever promise a claim will be approved.',
+      'You are Jo, the after-hours line for Summit Roofing (a fictional local roofer).\n\nQualify the caller: are they the homeowner, what kind of damage, is water coming in right now, are they filing an insurance claim?\n\nIf water is coming in, give the urgent path first: move valuables, place a bucket, and we dispatch a tarp crew. Otherwise book an inspection slot and confirm the address.',
+      'You are the voice concierge on Eashan Kadam\'s portfolio site. Answer questions about his experience, skills and projects using only the facts provided. Refer to Eashan in the third person. Stay on topic.'
+    ];
+    this.state = { tab: 0, on: false, edits: {} };
+  }
+  renderVals() {
+    const names = ['Debt collection', 'Insurance support', 'Roofing support', 'Portfolio concierge'];
+    const shorts = ['riya', 'sam', 'jo', 'concierge'];
+    const tab = this.state.tab;
+    const prompt = this.state.edits[tab] ?? this.defaults[tab];
+    const on = this.state.on;
+    const ring = [];
+    for (let i = 0; i < 40; i++) {
+      ring.push({
+        h: (on ? 10 + ((i * 29) % 20) : 8) + 'px',
+        rot: 'rotate(' + (i * 9) + 'deg)',
+        color: on ? '#7C93FF' : '#2C3B5E',
+        anim: on ? ('ringP ' + (0.8 + (i % 5) * 0.15) + 's ease-in-out infinite') : 'none'
+      });
+    }
+    const stages = [['endpoint', 0, 320], ['stt', 320, 130], ['llm_ttft', 450, 540], ['chunker', 990, 100], ['tts', 1090, 130]];
+    const scale = 1300;
+    const lines = tab === 0
+      ? [
+          { who: 'agent', color: '#7C93FF', text: 'Hi, this is Riya from Brightline Finance. Before we go on, can you confirm your date of birth?' },
+          { who: 'you', color: '#3DD68C', text: 'Sure, it\'s the fourth of March, ninety two. What is this about?' },
+          { who: 'agent', color: '#7C93FF', text: 'Thanks. This is an attempt to collect a debt: your EMI of eight thousand rupees was due on the tenth. Can you pay it today?' }
+        ]
+      : [
+          { who: 'agent', color: '#7C93FF', text: 'Hi, you\'re through to the ' + names[tab].toLowerCase() + ' demo. How can I help?' },
+          { who: 'you', color: '#3DD68C', text: '…' }
+        ];
+    return {
+      prompt,
+      tabs: names.map((name, i) => ({
+        name, sel: i === tab,
+        bg: i === tab ? '#22304D' : 'transparent',
+        fg: i === tab ? '#E7ECF5' : '#B4BED0',
+        pick: () => this.setState({ tab: i, on: false })
+      })),
+      edit: (e) => this.setState({ edits: { ...this.state.edits, [tab]: e.target.value } }),
+      reset: () => { const ed = { ...this.state.edits }; delete ed[tab]; this.setState({ edits: ed }); },
+      count: prompt.length.toLocaleString('en-US'),
+      countColor: prompt.length > 4000 ? '#FF8A8A' : '#8F9BB3',
+      toggle: () => this.setState({ on: !this.state.on }),
+      callLabel: on ? 'Hang up' : 'Start call with this prompt',
+      callBg: on ? '#E7ECF5' : '#7C93FF',
+      callFg: '#0A0F1C',
+      ring,
+      agentShort: shorts[tab],
+      stateLabel: on ? 'speaking · tap Hang up to end' : 'idle · 3 min max per call',
+      stateColor: on ? '#7C93FF' : '#8F9BB3',
+      lines,
+      water: stages.map(([name, start, ms]) => ({
+        name, ms: ms + 'ms',
+        left: (start / scale * 100).toFixed(2) + '%',
+        width: (ms / scale * 100).toFixed(2) + '%',
+        color: name === 'llm_ttft' ? '#7C93FF' : '#4A5F94'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

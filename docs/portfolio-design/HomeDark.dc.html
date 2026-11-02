@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Eashan Kadam: Home (dark)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0A0F1C}
+</style>
+</helmet>
+<div style="background: #0A0F1C">
+  <dc-import name="Home" dark="{{ isDark }}" hint-size="100%,1300px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { isDark: true };
+  }
+}
+</script>
+</body>
+</html>

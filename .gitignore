@@ -8,3 +8,7 @@ logs/
 .DS_Store
 .vercel
 *.tsbuildinfo
+
+# Portfolio assets that must stay local (phone number on résumé, uncropped photo)
+docs/portfolio-assets/Eashan_Kadam_Resume.pdf
+docs/portfolio-assets/eashan-photo-original.jpg

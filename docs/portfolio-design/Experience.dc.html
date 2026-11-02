@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Experience</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#0A0A0A}a:hover{color:#2346FF}
+</style>
+</helmet>
+<div style="min-height: 1640px; background: #FFFFFF; color: #0A0A0A; font-family: 'Inter Tight', system-ui, sans-serif; box-sizing: border-box; padding: 0 24px 72px">
+  <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px">
+
+    <nav aria-label="Primary" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid #E6E6E6">
+      <a href="Home.dc.html" style="font-weight: 800; font-size: 18px; text-decoration: none; letter-spacing: -0.02em">eashan.kadam</a>
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+        <a href="Home.dc.html" style="text-decoration: none; color: #4A4A4A">01 Demos</a>
+        <a href="Playground.dc.html" style="text-decoration: none; color: #4A4A4A">02 Playground</a>
+        <a href="#top" style="text-decoration: none; border-bottom: 2px solid #2346FF; padding-bottom: 4px">03 Experience</a>
+      </div>
+      <a href="#resume" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; background: #0A0A0A; color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 600">Résumé PDF ↓</a>
+    </nav>
+
+    <header id="top" style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
+        <h1 style="margin: 0; font-size: 72px; font-weight: 800; letter-spacing: -0.05em; line-height: 0.95">Experience</h1>
+        <p style="margin: 0; font-size: 19px; line-height: 1.55; color: #4A4A4A">AI Product Manager with 5+ years of product management and 3 years of software development, most of it spent building voice AI agents for enterprise B2B SaaS customers.</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px">
+        <img src="../portfolio-assets/eashan-headshot.jpg" alt="" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover">
+        <div style="display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: #4A4A4A">
+          <span style="font-weight: 600; color: #0A0A0A">Eashan Kadam</span>
+          <span>Mumbai, India</span>
+        </div>
+      </div>
+    </header>
+
+    <section aria-label="Roles" style="display: flex; flex-direction: column; border-top: 1px solid #0A0A0A">
+      <sc-for list="{{ roles }}" as="r" hint-placeholder-count="6">
+        <article style="display: flex; flex-wrap: wrap; gap: 16px 40px; padding: 28px 0; border-bottom: 1px solid #E6E6E6">
+          <div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5C5C5C">{{ r.dates }}</span>
+            <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em">{{ r.company }}</span>
+            <sc-if value="{{ r.metric }}" hint-placeholder-val="{{ true }}">
+              <span style="align-self: flex-start; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2346FF; border: 1px solid #C9D2FF; background: #F2F4FF; border-radius: 999px; padding: 4px 10px">{{ r.metric }}</span>
+            </sc-if>
+          </div>
+          <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 600">{{ r.title }}</h2>
+            <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.55; color: #4A4A4A">
+              <sc-for list="{{ r.shown }}" as="b" hint-placeholder-count="2">
+                <li>{{ b }}</li>
+              </sc-for>
+            </ul>
+            <sc-if value="{{ r.hasMore }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ r.flip }}" aria-expanded="{{ r.open }}" style="align-self: flex-start; min-height: 44px; padding: 0; border: none; background: transparent; color: #2346FF; font-family: 'JetBrains Mono', monospace; font-size: 13px; cursor: pointer">{{ r.moreLabel }}</button>
+            </sc-if>
+          </div>
+        </article>
+      </sc-for>
+    </section>
+
+    <section aria-label="Education, skills and achievements" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px">
+      <div style="border: 1px solid #E6E6E6; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #5C5C5C">EDUCATION</h2>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Indian School of Business</span><span style="font-size: 14px; color: #4A4A4A">Post Graduate Program in Management, full-time (Marketing and IT Management), 2020</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Veermata Jijabai Technological Institute</span><span style="font-size: 14px; color: #4A4A4A">Bachelor of Technology (IT), 2016</span></div>
+      </div>
+      <div style="border: 1px solid #E6E6E6; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #5C5C5C">ACHIEVEMENTS</h2>
+        <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #4A4A4A">Won an internal GenAI Product Hackathon at SaaS Labs for a mobile-first real-estate AI assistant.</p>
+        <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #4A4A4A">Built Quickey Keyboard, a zero-UI keyboard startup accepted into the IGNITE program with a 10 lac seed fund.</p>
+      </div>
+      <div style="border: 1px solid #E6E6E6; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #5C5C5C">SKILLS</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{ skills }}" as="s" hint-placeholder-count="8">
+            <span style="font-size: 13px; border: 1px solid #E6E6E6; border-radius: 999px; padding: 6px 10px">{{ s }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { open: {} }; }
+  renderVals() {
+    const data = [
+      { dates: 'Apr 2025 – Present', company: 'Kodo', title: 'AI Product Manager', metric: '+25% trial activation', bullets: [
+        'Designed an agentic AI workflow that reads invoices, classifies each line item, and raises approval requests for Accounts Payable (AP) teams; it featured in the pitch for 5 new deals worth over $100K ARR combined.',
+        'Shipped a chat-based Reporting Agent that builds reports for CFOs using retrieval-augmented generation (RAG); lifted trial user activation 25% (relative).',
+        'Built LLM evals that set a quality baseline for the invoice workflow to test every change against, and evals for the corporate treasury product being launched.',
+        'Owned the product roadmap for Kodo’s fintech P2P automation platform.',
+        'Introduced 2-week sprints, backlog grooming, and clear user stories and acceptance criteria, cutting time-to-live by 40%.'
+      ]},
+      { dates: 'Aug 2026 – Present', company: 'AI Transformation Consulting', title: 'Independent AI Consultant (Part-time)', metric: '~87% recipe match', bullets: [
+        'Built an AI assistant that suggests starting recipes to a paint manufacturer’s chemists, drawing on years of past lab data.',
+        'On 10 past batches, it matched ~87% of chemists’ real recipes (vs. ~42% baseline), cutting search from hours to minutes.'
+      ]},
+      { dates: 'Mar 2023 – Mar 2025', company: 'JustCall (SaaS Labs)', title: 'Product Manager, AI Voice Agent & JustCall AI', metric: '~$1M ARR, 0→1', bullets: [
+        'Led the 0→1 build of JustCall’s own AI Voice Agent on top of a third-party voice platform, growing a new AI revenue stream to about $1M ARR, including an ~$800K enterprise deal.',
+        'Ran a beta for an appointment-booking voice agent that drew 500+ access requests and 100+ active customers, then launched v1 in November 2024; 50+ customers signed up and paid within 2 months, adding ~$100K ARR.',
+        'Launched AI Coaching, which scores agents’ calls against configurable scorecards, helping win $500K+ ARR in enterprise AI plans (FY23-24).',
+        'Built APIs and webhooks that send call data into customers’ own workflows via Zapier, a key factor in 5 large (50+ seat) deals in 2024.'
+      ]},
+      { dates: 'Nov 2021 – Jan 2023', company: 'Skit.ai', title: 'Product Manager (Applications)', metric: '$450K contracted ARR', bullets: [
+        'Led a team of 3 PMs to build ~10 ready-to-deploy voice agents for debt collection, insurance renewal, lead qualification, and feedback calls; ran 4 pilots that turned into $450K in contracted ARR.',
+        'Cut go-live time for debt-collection voice agents by 80%, to under 2 weeks.',
+        'Designed the Digital Experience Center, a standard way for prospects to try the product, raising lead qualification ~30%.'
+      ]},
+      { dates: 'Oct 2020 – Nov 2021', company: 'Engagely AI (Exponentia.ai)', title: 'Lead Product Manager, Pre-Sales', metric: '60% POC conversion', bullets: [
+        'Defined the go-to-market (GTM) and customer-solutioning strategy that made the voice bot the main enterprise revenue driver across major US and APAC accounts.',
+        'Ran 40+ proofs of concept (POCs) with a 60% conversion rate; launched real-time translation, bot recommendations, and agent assist, helping win a $200K ARR client.'
+      ]},
+      { dates: 'Jun 2016 – Mar 2019', company: 'Citicorp', title: 'Assistant Manager 2', metric: '45% faster access', bullets: [
+        'Built an internal event-driven messaging system that cut access time to legacy systems by 45%, with reusable components saving an estimated $100K-$200K a year.'
+      ]}
+    ];
+    const roles = data.map((r, i) => {
+      const open = !!this.state.open[i];
+      const hasMore = r.bullets.length > 2;
+      return {
+        ...r, open, hasMore,
+        shown: open ? r.bullets : r.bullets.slice(0, 2),
+        moreLabel: open ? 'Show less' : ('Show ' + (r.bullets.length - 2) + ' more'),
+        flip: () => this.setState({ open: { ...this.state.open, [i]: !open } })
+      };
+    });
+    return {
+      roles,
+      skills: ['AI voice/chat agents', 'Agentic systems', 'LLM evals & guardrails', 'Prompt engineering', 'Vector databases', 'Generative AI', 'Python', 'SQL', 'Claude Code', 'Claude Cowork', 'Lovable', 'Figma Make', 'Zapier/N8N', 'UAT', 'Jira/Confluence']
+    };
+  }
+}
+</script>
+</body>
+</html>

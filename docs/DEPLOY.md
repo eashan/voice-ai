@@ -60,3 +60,9 @@ fly secrets set ALLOWED_ORIGINS=https://<your-project>.vercel.app
 - **Caps** (`fly.toml [env]`): 2 concurrent calls, 3-minute calls, 20 s silence hangup, 60 min/day (UTC).
 - **Status:** `curl …/healthz` → `{enabled, activeCalls, budgetLeftMinutes}`. Logs: `fly logs` (one `[turn]` line per turn).
 - **Rotate the invite code:** change `DEMO_INVITE_CODE` in Vercel and redeploy. Rotating `SESSION_JWT_SECRET` needs both sides.
+
+## Live (2026-11-02)
+- Site: https://voiceforge-eashan.vercel.app (Vercel production domain; preview/deployment URLs stay behind Vercel Authentication)
+- Orchestrator: https://voiceforge-orchestrator.fly.dev (`iad`), `ALLOWED_ORIGINS=https://voiceforge-eashan.vercel.app`
+- Monorepo gotcha: Vercel installs only what `apps/web/package.json` declares, so the web app must list
+  `@voiceforge/shared`, `typescript` and `@types/node` itself.
