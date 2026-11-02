@@ -1,0 +1,18 @@
+{
+  "name": "voiceforge",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:orchestrator": "npm run dev -w @voiceforge/orchestrator",
+    "dev:web": "npm run dev -w @voiceforge/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

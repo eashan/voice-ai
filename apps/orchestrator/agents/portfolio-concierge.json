@@ -1,0 +1,27 @@
+{
+  "workspaceId": "ws_demo",
+  "agentId": "agent_portfolio_concierge",
+  "version": 1,
+  "name": "Portfolio Concierge",
+  "greeting": "Hi! I'm Eashan's voice assistant. Ask me anything about his experience or projects.",
+  "systemPromptFile": "portfolio-concierge.prompt.md",
+  "llm": {
+    "model": "claude-haiku-5-5",
+    "thinking": "disabled",
+    "effort": "low",
+    "maxTokens": 300
+  },
+  "voice": {
+    "provider": "deepgram",
+    "voiceId": "aura-2-thalia-en"
+  },
+  "stt": {
+    "provider": "elevenlabs",
+    "language": "en"
+  },
+  "turnTaking": {
+    "endpointer": "provider_vad",
+    "silenceMs": 300,
+    "bargeIn": true
+  }
+}
