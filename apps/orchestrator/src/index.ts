@@ -4,9 +4,16 @@ import { WebSocketServer } from "ws";
 import type { ClientMessage } from "@voiceforge/shared";
 import { BrowserWsTransport } from "./transport/BrowserWsTransport.js";
 import { loadAgent } from "./config/loadAgent.js";
+import { ElevenLabsStt } from "./providers/elevenlabs/ElevenLabsStt.js";
+import { Session } from "./session/Session.js";
 
 const PORT = Number(process.env.ORCHESTRATOR_PORT ?? 8787);
 const agent = loadAgent();
+// A/B override for latency experiments: ENDPOINTER=provider_vad|silero_vad
+if (process.env.ENDPOINTER === "provider_vad" || process.env.ENDPOINTER === "silero_vad") {
+  agent.turnTaking.endpointer = process.env.ENDPOINTER;
+}
+const stt = new ElevenLabsStt();
 
 const http = createServer((req, res) => {
   if (req.url === "/healthz") {
@@ -22,33 +29,41 @@ const wss = new WebSocketServer({ server: http, path: "/ws" });
 wss.on("connection", (ws) => {
   const transport = new BrowserWsTransport(ws);
   const sessionId = randomUUID();
-  let started = false;
+  let session: Session | null = null;
 
-  ws.on("message", (data, isBinary) => {
+  ws.on("message", async (data, isBinary) => {
     if (isBinary) return;
-    const msg = JSON.parse(data.toString()) as ClientMessage;
-    if (msg.type === "start" && !started) {
+    let msg: ClientMessage;
+    try {
+      msg = JSON.parse(data.toString()) as ClientMessage;
+    } catch {
+      return;
+    }
+    if (msg.type === "start" && !session) {
       // TODO(week 3): verify session JWT + caps before accepting.
-      started = true;
-      transport.sendEvent({
-        type: "ready",
-        sessionId,
-        inputFormat: transport.inputFormat,
-        outputFormat: transport.outputFormat,
-      });
+      session = new Session(sessionId, agent, transport, stt);
+      try {
+        await session.start();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[session ${sessionId}] start failed: ${message}`);
+        transport.sendEvent({ type: "error", code: "session_start_failed", message });
+        transport.close();
+        return;
+      }
+      transport.sendEvent({ type: "ready", sessionId, inputFormat: transport.inputFormat, outputFormat: transport.outputFormat });
       console.log(`[session ${sessionId}] started`);
     } else if (msg.type === "hangup") {
       transport.close();
     }
   });
 
-  // Week 1 step 3: loopback to verify browser capture → server → playback.
-  // Replaced by STT → LLM → TTS pipeline in week 2.
-  transport.onAudio((frame) => {
-    if (started) transport.sendAudio(frame);
+  transport.onClose(() => {
+    void session?.close();
+    console.log(`[session ${sessionId}] closed`);
   });
-
-  transport.onClose(() => console.log(`[session ${sessionId}] closed`));
 });
 
-http.listen(PORT, () => console.log(`orchestrator listening on :${PORT} (agent ${agent.agentId})`));
+http.listen(PORT, () =>
+  console.log(`orchestrator listening on :${PORT} (agent ${agent.agentId}, endpointer ${agent.turnTaking.endpointer})`),
+);

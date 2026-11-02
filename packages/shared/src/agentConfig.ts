@@ -21,6 +21,8 @@ export const AgentConfigSchema = z.object({
   stt: z.object({
     provider: z.literal("elevenlabs"),
     language: z.string().default("en"),
+    /** Vocabulary hints (names, products) to bias recognition. */
+    keyterms: z.array(z.string().max(20, "ElevenLabs keyterms are max 20 chars")).default([]),
   }),
   turnTaking: z.object({
     endpointer: z.enum(["provider_vad", "silero_vad"]).default("provider_vad"),

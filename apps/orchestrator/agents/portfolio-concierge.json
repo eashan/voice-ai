@@ -17,10 +17,28 @@
   },
   "stt": {
     "provider": "elevenlabs",
-    "language": "en"
+    "language": "en",
+    "keyterms": [
+      "Eashan",
+      "Eashan Kadam",
+      "JustCall",
+      "SaaS Labs",
+      "Kodo",
+      "Skit.ai",
+      "Engagely",
+      "Exponentia",
+      "Citicorp",
+      "VJTI",
+      "ISB",
+      "Quickey",
+      "VoiceForge",
+      "RAG",
+      "ARR",
+      "paint formulation"
+    ]
   },
   "turnTaking": {
-    "endpointer": "provider_vad",
+    "endpointer": "silero_vad",
     "silenceMs": 300,
     "bargeIn": true
   }

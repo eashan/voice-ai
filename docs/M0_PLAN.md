@@ -57,3 +57,28 @@ network + browser playout, so real end-to-end ≈ the PRD's 800 ms target).
 - Provide resume + 3–5 project blurbs for the concierge prompt (`apps/orchestrator/agents/portfolio-concierge.json`).
 - API keys: Anthropic, ElevenLabs, Deepgram (put in `.env`, never committed).
 - Choose a Deepgram Aura voice.
+
+## Findings log
+
+**2026-11-02 — Endpointer A (ElevenLabs VAD commit) measured**
+- Test: `say`-generated question streamed in real time from the dev laptop (`scripts/stream-wav.ts`), `vad_silence_threshold_secs=0.3`.
+- `endpoint − speech_end` ≈ **900 ms** (range 800–1350 ms over 6 runs); chunk size 100 ms vs 40 ms made no consistent difference.
+- Network is not the cause: TCP connect to `api.elevenlabs.io` ≈ 15 ms from the laptop.
+- Budget for endpointing + STT finalization is ~400–450 ms → **provider VAD alone costs ~2× budget. Endpointer B (local Silero VAD + manual commit) is required, not optional.**
+- `keyterms` fixed name recognition ("Eshan" → "Eashan"). ElevenLabs rejects keyterms > 20 chars (now enforced in the config schema).
+
+**2026-11-02 — Endpointer B (local Silero VAD + manual STT commit) measured**
+- Silero v5 ONNX via onnxruntime-node: **0.18 ms per 32 ms window** on the laptop CPU.
+- Same 3 `say` questions × 2 runs each, `silenceMs=300`:
+
+| | endpointing (`endpoint − speech_end`) | STT finalize (`stt_final − endpoint`) | speech_end → final transcript |
+|---|---|---|---|
+| A: ElevenLabs VAD | — (combined) | — (combined) | **843–1198 ms** |
+| B: Silero + manual commit | **293–338 ms** | **332–425 ms** | **649–719 ms** |
+
+- B saves ~250–480 ms and removes most of the variance. Endpointing is now on budget (250–300 ms target).
+- **New bottleneck: ElevenLabs commit → committed transcript ≈ 330–425 ms** (budget 100–150 ms).
+  Plan: in week 2, start Claude speculatively on the latest partial transcript at endpoint time (PRD LR-7),
+  and cancel/restart only if the committed text differs. At endpoint the partial usually already matches the final,
+  which takes STT finalization off the critical path. Fallback option: benchmark another STT provider behind `SttProvider`.
+- Default endpointer switched to `silero_vad` in `portfolio-concierge.json` (`ENDPOINTER=provider_vad` env var re-runs A).
