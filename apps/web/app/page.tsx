@@ -52,8 +52,8 @@ function Waterfall({ record }: { record: TurnLatencyRecord }) {
         if (a == null || b == null) return null;
         return (
           <div key={label} style={{ display: "flex", alignItems: "center", fontSize: 12, height: 18 }}>
-            <span style={{ width: 110, color: "#666" }}>{label}</span>
-            <div style={{ position: "relative", flex: 1, height: 10, background: "#f0f0f0", borderRadius: 2 }}>
+            <span style={{ width: 110, color: "var(--muted)" }}>{label}</span>
+            <div style={{ position: "relative", flex: 1, height: 10, background: "var(--surface)", borderRadius: 2 }}>
               <div
                 style={{
                   position: "absolute",
@@ -69,7 +69,7 @@ function Waterfall({ record }: { record: TurnLatencyRecord }) {
           </div>
         );
       })}
-      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
         speech end → first LLM token:{" "}
         <b>{s.llm_first_token != null ? `${(s.llm_first_token - origin).toFixed(0)} ms` : "–"}</b>
         {record.serverV2vMs != null && (
@@ -238,9 +238,9 @@ export default function Page() {
   }
 
   return (
-    <main>
+    <main style={{ maxWidth: 720, margin: "40px auto", padding: 16 }}>
       <h1 style={{ marginBottom: 4 }}>VoiceForge</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>
         Ask about Eashan&apos;s experience. Interrupt any time. Use headphones so the agent doesn&apos;t hear itself.
         Latencies are server-measured.
       </p>
@@ -264,19 +264,19 @@ export default function Page() {
         <span style={{ marginLeft: 12, color: STATE_COLORS[agentState] }}>● {agentState.replace("_", " ")}</span>
       )}
 
-      {notice && <p style={{ color: "#555", background: "#f4f4f4", padding: 8 }}>{notice}</p>}
+      {notice && <p style={{ color: "var(--body)", background: "var(--surface)", padding: 8 }}>{notice}</p>}
       {errors.length > 0 && (
-        <pre style={{ background: "#fee", color: "#900", padding: 8, fontSize: 12, whiteSpace: "pre-wrap" }}>
+        <pre style={{ background: "var(--surface)", color: "var(--danger)", padding: 8, fontSize: 12, whiteSpace: "pre-wrap" }}>
           {errors.join("\n")}
         </pre>
       )}
 
       <div style={{ marginTop: 24 }}>
         {turns.map((t) => (
-          <div key={t.id} style={{ borderBottom: "1px solid #eee", padding: "12px 0" }}>
+          <div key={t.id} style={{ borderBottom: "1px solid var(--line)", padding: "12px 0" }}>
             {t.id >= 0 && (
               <div>
-                <b>You:</b> {t.user || <i style={{ color: "#999" }}>{t.partial || "…"}</i>}
+                <b>You:</b> {t.user || <i style={{ color: "var(--muted)" }}>{t.partial || "…"}</i>}
               </div>
             )}
             {(t.agent || t.record?.interrupted) && (
