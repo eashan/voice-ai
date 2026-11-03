@@ -1,0 +1,36 @@
+{
+  "workspaceId": "ws_demo",
+  "agentId": "agent_roofing_support",
+  "version": 1,
+  "name": "Jo (Pecan Hollow Roofing)",
+  "access": "invited",
+  "greeting": "Pecan Hollow Roofing after-hours line, this is Jo. What's going on with your roof tonight?",
+  "systemPromptFile": "roofing-support.prompt.md",
+  "llm": {
+    "model": "claude-haiku-4-5",
+    "thinking": "disabled",
+    "maxTokens": 300
+  },
+  "voice": {
+    "provider": "deepgram",
+    "voiceId": "aura-2-vesta-en"
+  },
+  "stt": {
+    "provider": "elevenlabs",
+    "language": "en",
+    "keyterms": [
+      "Pecan Hollow",
+      "Pecan Hollow Roofing",
+      "Chris Walker",
+      "shingle",
+      "tarp",
+      "Austin",
+      "hail"
+    ]
+  },
+  "turnTaking": {
+    "endpointer": "silero_vad",
+    "silenceMs": 200,
+    "bargeIn": true
+  }
+}

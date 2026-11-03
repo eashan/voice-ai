@@ -18,8 +18,9 @@ export interface CallTurn {
   record?: TurnLatencyRecord;
 }
 
-/** Proof sent to /api/session: a Turnstile token or the invite code. */
+/** Sent to /api/session: which agent, plus proof (a Turnstile token or the invite code; the unlock cookie rides along). */
 export interface SessionAuth {
+  agentId?: string;
   code?: string;
   turnstileToken?: string;
 }

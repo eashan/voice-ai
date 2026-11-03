@@ -1,0 +1,37 @@
+{
+  "workspaceId": "ws_demo",
+  "agentId": "agent_debt_collection",
+  "version": 1,
+  "name": "Riya (Brightline Finance)",
+  "access": "invited",
+  "greeting": "Hello, this is Riya calling from Brightline Finance. Am I speaking with Rahul Mehta?",
+  "systemPromptFile": "debt-collection.prompt.md",
+  "llm": {
+    "model": "claude-haiku-4-5",
+    "thinking": "disabled",
+    "maxTokens": 300
+  },
+  "voice": {
+    "provider": "elevenlabs",
+    "voiceId": "H8bdWZHK2OgZwTN7ponr"
+  },
+  "stt": {
+    "provider": "elevenlabs",
+    "language": "en",
+    "keyterms": [
+      "Brightline",
+      "Brightline Finance",
+      "Rahul Mehta",
+      "Riya",
+      "EMI",
+      "instalment",
+      "UPI",
+      "NBFC"
+    ]
+  },
+  "turnTaking": {
+    "endpointer": "silero_vad",
+    "silenceMs": 200,
+    "bargeIn": true
+  }
+}

@@ -173,12 +173,28 @@ M1 hook: tool calls (`lookup_policy`, `book_slot`, `create_payment_plan`) via th
 - Until the Turnstile keys are set, concierge callers use the invite code, so they count as `invited`.
 - Tests: `npx tsx scripts/test-gate.ts` (23 checks).
 
+## Step 5 decisions (2026-11-03)
+
+- **Markets:** debt collection + insurance are set in **India** (rupees, EMIs, RBI fair-practice recovery conduct, motor
+  claim intimation); roofing stays **US** (Austin, TX).
+- **Agents (all `invited`, all fictional):** Riya · Brightline Finance (debt) · Sameer · Saptarishi General Insurance
+  (motor claim) · Jo · Pecan Hollow Roofing (after-hours leak → tarp crew first). Names checked against real brands:
+  "Northstar General Insurance" and "Ridgeline Roofing" (Austin) were too close to real companies and were renamed.
+- **Voices:** Riya and Sameer get Indian-English ElevenLabs voices once the Starter plan is active (library voices need
+  a paid plan); temporary Deepgram voices until then. Jo: Deepgram `aura-2-vesta-en`.
+- **Role brief on every card** ("You're Rahul Mehta, DOB 4 March 1992…" + things to try); the same facts are the
+  "on file" record in each prompt (stand-in for M1 tools). Prompts get today's date via `{{TODAY:<tz>}}`.
+- **The card becomes the call:** 40-bar ring with the agent's name, state, latency chips, hang up; one call per page;
+  the floating transcript is shared. "View prompt" stays hidden until the playground (step 6).
+- **Unlock:** `/api/unlock` sets a signed, httpOnly, 30-day `vf_invite` cookie; `/api/session` accepts it as invited
+  proof. Status dots come from the invited tier (`ready | busy | resting`).
+
 ## What you need to do yourself
 
 - [x] Pick a direction: B + C, light and dark.
 - [x] Photo and résumé: in `docs/portfolio-assets/`.
 - [ ] Decide on a phone-free web résumé PDF.
-- [ ] Confirm or rename the fictional companies (Brightline Finance, Harbor Mutual, Summit Roofing) and personas.
+- [x] Confirm or rename the fictional companies and personas (see Step 5 decisions).
 - [ ] Pick 3 Deepgram Aura voices.
 - [ ] Cloudflare Turnstile site key + secret.
 - [ ] Custom domain (if any).

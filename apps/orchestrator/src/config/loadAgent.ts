@@ -34,7 +34,18 @@ export function loadAgents(): Map<string, AgentConfig> {
   return registry;
 }
 
-/** Static content first so the prompt-cache prefix stays stable (PRD LR-4). */
+/** `{{TODAY:Asia/Kolkata}}` → "Tuesday, 3 November 2026" in that time zone (demo agents read dates back). */
+const TODAY_RE = /\{\{TODAY:([A-Za-z_]+\/[A-Za-z_]+)\}\}/g;
+function fillToday(text: string, at = new Date()): string {
+  return text.replace(TODAY_RE, (_m, timeZone: string) =>
+    at.toLocaleDateString("en-GB", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+  );
+}
+
+/**
+ * Static content first so the prompt-cache prefix stays stable (PRD LR-4). Built once per session, so a
+ * {{TODAY:…}} date only changes the prefix across days.
+ */
 export function buildSystemPrompt(agent: AgentConfig): string {
-  return `${agent.systemPrompt}\n\n${VOICE_STYLE_BLOCK}`;
+  return `${fillToday(agent.systemPrompt)}\n\n${VOICE_STYLE_BLOCK}`;
 }

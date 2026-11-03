@@ -16,23 +16,26 @@ interface Healthz {
 }
 
 /**
- * Concierge (public tier) availability for the UI. Also the pre-warm: hitting /healthz wakes the Fly machine
+ * Availability per caller tier for the UI: `status` = public (concierge), `invited` = demo agents. Also the pre-warm: hitting /healthz wakes the Fly machine
  * (auto-stopped when idle; cold boot ≈ 10 s) while the visitor is still reading the page.
  */
 export async function GET() {
   const ws = process.env.ORCHESTRATOR_WS_URL ?? process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? "ws://localhost:8787/ws";
   const url = new URL("/healthz", ws.replace(/^ws/, "http"));
   let status: AgentAvailability = "unknown";
+  let invited: AgentAvailability = "unknown";
   try {
     const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) });
     const h = (await res.json()) as Healthz;
-    // The hero's concierge is a public-tier call.
-    const pub = h.tiers?.public;
-    if (h.enabled === false || (pub?.budgetLeftMinutes ?? h.budgetLeftMinutes ?? 1) <= 0) status = "resting";
-    else if (pub ? !pub.slotFree : h.maxConcurrent != null && (h.activeCalls ?? 0) >= h.maxConcurrent) status = "busy";
-    else status = "ready";
+    const of = (t: TierStatus | undefined): AgentAvailability => {
+      if (h.enabled === false || (t?.budgetLeftMinutes ?? h.budgetLeftMinutes ?? 1) <= 0) return "resting";
+      if (t ? !t.slotFree : h.maxConcurrent != null && (h.activeCalls ?? 0) >= h.maxConcurrent) return "busy";
+      return "ready";
+    };
+    status = of(h.tiers?.public); // the hero's concierge
+    invited = of(h.tiers?.invited); // the demo cards
   } catch {
     // unreachable or still booting: the call attempt itself will tell
   }
-  return Response.json({ status }, { headers: { "cache-control": "no-store" } });
+  return Response.json({ status, invited }, { headers: { "cache-control": "no-store" } });
 }

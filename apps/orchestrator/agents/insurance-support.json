@@ -1,0 +1,39 @@
+{
+  "workspaceId": "ws_demo",
+  "agentId": "agent_insurance_support",
+  "version": 1,
+  "name": "Sameer (Saptarishi General Insurance)",
+  "access": "invited",
+  "greeting": "Thank you for calling Saptarishi General Insurance, this is Sameer. How can I help you today?",
+  "systemPromptFile": "insurance-support.prompt.md",
+  "llm": {
+    "model": "claude-haiku-4-5",
+    "thinking": "disabled",
+    "maxTokens": 300
+  },
+  "voice": {
+    "provider": "elevenlabs",
+    "voiceId": "3gsg3cxXyFLcGIfNbM6C"
+  },
+  "stt": {
+    "provider": "elevenlabs",
+    "language": "en",
+    "keyterms": [
+      "Saptarishi",
+      "Ananya Iyer",
+      "Hyundai i20",
+      "MH 12 AB 4821",
+      "FIR",
+      "Baner",
+      "Hadapsar",
+      "zero depreciation",
+      "cashless",
+      "surveyor"
+    ]
+  },
+  "turnTaking": {
+    "endpointer": "silero_vad",
+    "silenceMs": 200,
+    "bargeIn": true
+  }
+}

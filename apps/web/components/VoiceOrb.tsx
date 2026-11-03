@@ -1,88 +1,98 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef } from "react";
-
-const BARS = 48;
-const IDLE_H = 10;
-const MIN_H = 14;
-const MAX_H = 40;
-/** Scatter the useful voice bins (≈125 Hz–3 kHz) around the ring so it doesn't look top-heavy. */
-const binFor = (i: number) => 1 + ((i * 7) % 24);
 
 interface Props {
   live: boolean;
   /** Fills the buffer with 0–255 per frequency bin; false when no audio graph. */
   readSpectrum: (out: Uint8Array<ArrayBuffer>) => boolean;
   spectrumSize: number;
+  /** Box size in px (hero 280, card 168). */
+  size?: number;
+  bars?: number;
+  idleHeight?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  /** Centre content: the hero's photo, a card's initials. */
+  children: React.ReactNode;
 }
 
 /**
- * Hero orb: circular photo inside 48 radial bars. Idle bars rest at 10px; during a call their heights follow
- * the live audio (agent playback or mic, whichever is louder).
+ * Radial waveform ring. Idle bars rest short in `--ring-idle`; during a call their heights follow the live
+ * audio (agent playback or mic, whichever is louder) in `--accent`.
  */
-export function VoiceOrb({ live, readSpectrum, spectrumSize }: Props) {
-  const bars = useRef<Array<HTMLSpanElement | null>>([]);
+export function VoiceOrb({
+  live,
+  readSpectrum,
+  spectrumSize,
+  size = 280,
+  bars = 48,
+  idleHeight = 10,
+  minHeight = 14,
+  maxHeight = 40,
+  children,
+}: Props) {
+  const els = useRef<Array<HTMLSpanElement | null>>([]);
+  const half = size / 2;
 
   useEffect(() => {
     if (!live) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; // static live ring
     const bins = new Uint8Array(spectrumSize);
+    // Scatter the useful voice bins (≈125 Hz–3 kHz) around the ring so it doesn't look top-heavy.
+    const binFor = (i: number) => 1 + ((i * 7) % 24);
     let raf = 0;
     const tick = () => {
       if (readSpectrum(bins)) {
-        for (let i = 0; i < BARS; i++) {
+        for (let i = 0; i < bars; i++) {
           const b = binFor(i);
           // Higher bins are quieter in speech: lift them a little.
           const v = Math.min(1, (bins[b]! / 255) * (1 + b / 16));
-          const el = bars.current[i];
-          if (el) el.style.height = `${MIN_H + v * (MAX_H - MIN_H)}px`;
+          const el = els.current[i];
+          if (el) el.style.height = `${minHeight + v * (maxHeight - minHeight)}px`;
         }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [live, readSpectrum, spectrumSize]);
+  }, [live, readSpectrum, spectrumSize, bars, minHeight, maxHeight]);
 
   return (
-    <div style={{ position: "relative", width: 280, height: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div
+      style={{
+        position: "relative",
+        width: size,
+        height: size,
+        flex: "0 0 auto",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <div aria-hidden="true" style={{ position: "absolute", inset: 0 }}>
-        {Array.from({ length: BARS }, (_, i) => (
+        {Array.from({ length: bars }, (_, i) => (
           <span
             key={i}
             ref={(el) => {
-              bars.current[i] = el;
+              els.current[i] = el;
             }}
             style={{
               position: "absolute",
-              left: 139,
+              left: half - 1,
               top: 0,
               width: 2,
-              height: live ? 22 : IDLE_H,
+              height: live ? (minHeight + maxHeight) / 2 : idleHeight,
               borderRadius: 2,
               background: live ? "var(--accent)" : "var(--ring-idle)",
-              transformOrigin: "1px 140px",
-              transform: `rotate(${i * 7.5}deg)`,
+              transformOrigin: `1px ${half}px`,
+              transform: `rotate(${(i * 360) / bars}deg)`,
               transition: "background-color 200ms",
             }}
           />
         ))}
       </div>
-      <Image
-        src="/eashan-headshot.jpg"
-        alt="Eashan Kadam"
-        width={188}
-        height={188}
-        priority
-        style={{
-          borderRadius: "50%",
-          objectFit: "cover",
-          border: "3px solid var(--bg)",
-          boxShadow: "0 0 0 1px var(--line)",
-          position: "relative",
-        }}
-      />
+      {children}
     </div>
   );
 }

@@ -1,6 +1,14 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { signSessionToken, MIN_SECRET_LENGTH, type SessionTier } from "@voiceforge/shared/sessionToken";
 import { turnstileEnabled } from "../../../lib/turnstileConfig";
+import {
+  INVITE_COOKIE,
+  checkInviteCode,
+  clientIp,
+  inviteCookieHeader,
+  readCookie,
+  signInviteCookie,
+  verifyInviteCookie,
+} from "../../../lib/invite";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,13 +19,6 @@ const DEFAULT_AGENT_ID = "agent_portfolio_concierge";
 /** Shape check only: the orchestrator's registry decides whether the agent exists and who may call it. */
 const AGENT_ID_RE = /^agent_[a-z0-9_]{1,48}$/;
 const TOKEN_TTL_SECONDS = 60;
-
-/** Best-effort brute-force brake on invite codes (per serverless instance). The Fly-side budget is the real backstop. */
-const MAX_ATTEMPTS = 10;
-const WINDOW_MS = 10 * 60 * 1000;
-const attempts = new Map<string, { n: number; resetAt: number }>();
-
-const digest = (s: string) => createHash("sha256").update(s).digest();
 
 /** Cloudflare Turnstile server-side check. Tokens are single-use and valid for 5 minutes. */
 async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
@@ -36,16 +37,16 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
 
 /**
  * Exchange proof of a real visitor for a short-lived, single-use session token + the orchestrator URL.
- * Proof = a Turnstile token (when TURNSTILE_SECRET_KEY + TURNSTILE_SITE_KEY are set) or the invite code.
+ * Proof (→ tier): a Turnstile token (→ public), the unlock cookie (→ invited) or the invite code (→ invited, and
+ * sets the cookie). The orchestrator decides whether that tier may call the requested agent.
  */
 export async function POST(req: Request) {
   const secret = process.env.SESSION_JWT_SECRET ?? "";
-  const invite = process.env.DEMO_INVITE_CODE ?? "";
   if (secret.length < MIN_SECRET_LENGTH) {
     return Response.json({ error: "Demo is not configured." }, { status: 503 });
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIp(req);
   let code = "";
   let turnstileToken = "";
   let agentId = DEFAULT_AGENT_ID;
@@ -55,36 +56,31 @@ export async function POST(req: Request) {
     if (typeof body.turnstileToken === "string") turnstileToken = body.turnstileToken;
     if (typeof body.agentId === "string") agentId = body.agentId;
   } catch {
-    // fall through: no proof
+    // fall through: no proof in the body
   }
   if (!AGENT_ID_RE.test(agentId)) return Response.json({ error: "Unknown agent." }, { status: 400 });
 
-  // Tier = what the visitor proved: the bot check → public; the invite code → invited.
   let tier: SessionTier;
-  let admitted = false;
+  let setCookie: string | null = null;
   if (turnstileEnabled() && turnstileToken) {
-    tier = "public";
-    admitted = await verifyTurnstile(turnstileToken, ip);
-    if (!admitted) return Response.json({ error: "Couldn't verify the request. Please try again." }, { status: 401 });
-  } else {
-    tier = "invited";
-    const now = Date.now();
-    const a = attempts.get(ip);
-    const entry = a && a.resetAt > now ? a : { n: 0, resetAt: now + WINDOW_MS };
-    if (entry.n >= MAX_ATTEMPTS) return Response.json({ error: "Too many attempts. Try again later." }, { status: 429 });
-    admitted = invite !== "" && timingSafeEqual(digest(code), digest(invite));
-    if (!admitted) {
-      entry.n++;
-      attempts.set(ip, entry);
-      return Response.json(
-        { error: code ? "That invite code isn't valid." : "An invite code is needed.", needsCode: true },
-        { status: 401 },
-      );
+    if (!(await verifyTurnstile(turnstileToken, ip))) {
+      return Response.json({ error: "Couldn't verify the request. Please try again." }, { status: 401 });
     }
+    tier = "public";
+  } else if (verifyInviteCookie(readCookie(req, INVITE_COOKIE))) {
+    tier = "invited";
+  } else {
+    const check = checkInviteCode(code, ip);
+    if (!check.ok) return Response.json({ error: check.error, needsCode: true }, { status: check.status });
+    tier = "invited";
+    const cookie = signInviteCookie();
+    if (cookie) setCookie = inviteCookieHeader(cookie);
   }
 
   const token = signSessionToken(secret, { wid: WORKSPACE_ID, aid: agentId, tier }, TOKEN_TTL_SECONDS);
   const wsUrl =
     process.env.ORCHESTRATOR_WS_URL ?? process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? "ws://localhost:8787/ws";
-  return Response.json({ token, wsUrl }, { headers: { "cache-control": "no-store" } });
+  const headers: Record<string, string> = { "cache-control": "no-store" };
+  if (setCookie) headers["set-cookie"] = setCookie;
+  return Response.json({ token, wsUrl }, { headers });
 }
