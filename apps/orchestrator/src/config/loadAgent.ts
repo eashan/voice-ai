@@ -1,6 +1,16 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { AgentConfigSchema, VOICE_STYLE_BLOCK, type AgentConfig } from "@voiceforge/shared";
+import { createHash } from "node:crypto";
+import { appendFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import {
+  AgentConfigSchema,
+  SANDBOX_GUARD,
+  SANDBOX_LIMITS,
+  VOICE_STYLE_BLOCK,
+  type AgentConfig,
+} from "@voiceforge/shared";
+import { DATA_DIR } from "./env.js";
 
 const AGENTS_DIR = new URL("../../agents/", import.meta.url);
 
@@ -15,6 +25,12 @@ export function loadAgent(name = "portfolio-concierge"): AgentConfig {
     raw.systemPrompt = read(raw.systemPromptFile);
     delete raw.systemPromptFile;
   }
+  if (typeof raw.sandboxSuffixFile === "string") {
+    raw.sandboxSuffix = read(raw.sandboxSuffixFile);
+    delete raw.sandboxSuffixFile;
+  }
+  // The playground's default editor text; only the web app reads it (scripts/gen-playground-defaults.ts).
+  delete raw.sandboxPromptFile;
   return AgentConfigSchema.parse(raw);
 }
 
@@ -48,4 +64,49 @@ function fillToday(text: string, at = new Date()): string {
  */
 export function buildSystemPrompt(agent: AgentConfig): string {
   return `${fillToday(agent.systemPrompt)}\n\n${VOICE_STYLE_BLOCK}`;
+}
+
+export interface SandboxInput {
+  prompt: string;
+  greeting: string;
+}
+
+/** Shape + length check for a playground prompt (the web app checks the same, the orchestrator doesn't trust it). */
+export function validSandbox(input: { prompt?: unknown; greeting?: unknown }): SandboxInput | null {
+  const { prompt, greeting } = input;
+  if (typeof prompt !== "string" || typeof greeting !== "string") return null;
+  if (!prompt.trim() || prompt.length > SANDBOX_LIMITS.promptChars) return null;
+  if (!greeting.trim() || greeting.length > SANDBOX_LIMITS.greetingChars) return null;
+  return { prompt, greeting };
+}
+
+/**
+ * Playground call: a copy of the base agent with the visitor's greeting and prompt. The prompt sits between the
+ * locked guard and the agent's locked suffix (if any); buildSystemPrompt still appends the voice style block.
+ */
+export function sandboxAgent(base: AgentConfig, input: SandboxInput): AgentConfig {
+  const parts = [SANDBOX_GUARD, input.prompt.trim()];
+  if (base.sandboxSuffix) parts.push(base.sandboxSuffix.trim());
+  return { ...base, greeting: input.greeting.trim(), systemPrompt: parts.join("\n\n") };
+}
+
+const SANDBOX_LOG = join(DATA_DIR, "sandbox-prompts.jsonl");
+
+/** One line per playground call: enough to spot abuse, not the whole prompt. */
+export async function logSandboxPrompt(sessionId: string, agentId: string, input: SandboxInput): Promise<void> {
+  const line = {
+    at: new Date().toISOString(),
+    sessionId,
+    agentId,
+    hash: createHash("sha256").update(input.prompt).digest("hex").slice(0, 16),
+    chars: input.prompt.length,
+    greeting: input.greeting.slice(0, 200),
+    prompt: input.prompt.slice(0, 200),
+  };
+  try {
+    await mkdir(DATA_DIR, { recursive: true });
+    await appendFile(SANDBOX_LOG, JSON.stringify(line) + "\n");
+  } catch (err) {
+    console.error(`[sandbox] couldn't log prompt: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

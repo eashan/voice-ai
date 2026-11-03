@@ -36,7 +36,14 @@ export function useCall(): CallContextValue {
  * One voice call per page: the hero and every demo card share it, so only one can be live at a time.
  * Also owns availability (which pre-warms the Fly machine), the unlock state and the floating transcript.
  */
-export function CallProvider({ children }: { children: React.ReactNode }) {
+export function CallProvider({
+  children,
+  floatingTranscript = true,
+}: {
+  children: React.ReactNode;
+  /** The playground shows its transcript in the page instead. */
+  floatingTranscript?: boolean;
+}) {
   const call = useVoiceCall();
   const [owner, setOwner] = useState<CallOwner | null>(null);
   const [availability, setAvailability] = useState<CallContextValue["availability"]>({
@@ -115,7 +122,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <TranscriptPanel status={call.status} turns={call.turns} />
+      {floatingTranscript && <TranscriptPanel status={call.status} turns={call.turns} />}
     </Ctx.Provider>
   );
 }

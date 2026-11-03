@@ -1,13 +1,20 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentConfig } from "@voiceforge/shared";
-import { MIN_SECRET_LENGTH, verifySessionToken, type SessionClaims, type SessionTier } from "@voiceforge/shared/sessionToken";
+import {
+  MIN_SECRET_LENGTH,
+  sandboxHash,
+  verifySessionToken,
+  type SessionClaims,
+  type SessionTier,
+} from "@voiceforge/shared/sessionToken";
+import { sandboxAgent, validSandbox, type SandboxInput } from "../config/loadAgent.js";
 import { DATA_DIR, LIMITS } from "../config/env.js";
 
-export type Rejection = "disabled" | "unauthorized" | "forbidden" | "busy" | "budget_exhausted";
+export type Rejection = "disabled" | "unauthorized" | "forbidden" | "sandbox_mismatch" | "busy" | "budget_exhausted";
 
 export type Admission =
-  | { ok: true; claims: SessionClaims; tier: SessionTier; agent: AgentConfig }
+  | { ok: true; claims: SessionClaims; tier: SessionTier; agent: AgentConfig; sandbox: SandboxInput | null }
   | { ok: false; reason: Rejection; message: string };
 
 const TIERS: SessionTier[] = ["public", "invited"];
@@ -37,7 +44,11 @@ export class Gate {
     this.usage = this.loadUsage();
   }
 
-  admit(token: unknown): Admission {
+  /**
+   * `sandbox` = the prompt + greeting from a playground `start`. Used only if the token carries their hash
+   * (`ph`, signed by /api/session after the invite check); otherwise ignored.
+   */
+  admit(token: unknown, sandbox: { prompt?: unknown; greeting?: unknown } = {}): Admission {
     if (!LIMITS.enabled) return { ok: false, reason: "disabled", message: "The demo is paused right now." };
     const claims = typeof token === "string" ? verifySessionToken(token, this.secret) : null;
     const agent = claims ? this.registry.get(claims.aid) : undefined;
@@ -48,6 +59,16 @@ export class Gate {
     if (agent.access === "invited" && tier !== "invited") {
       return { ok: false, reason: "forbidden", message: "This demo needs an invite code." };
     }
+    let input: SandboxInput | null = null;
+    if (claims.ph !== undefined) {
+      if (tier !== "invited") {
+        return { ok: false, reason: "forbidden", message: "The playground needs an invite code." };
+      }
+      input = validSandbox(sandbox);
+      if (!input || sandboxHash(input.greeting, input.prompt) !== claims.ph) {
+        return { ok: false, reason: "sandbox_mismatch", message: "The prompt doesn't match this session." };
+      }
+    }
     if (!this.hasSlot(tier)) {
       return { ok: false, reason: "busy", message: "The demo is busy. Try again in a few minutes." };
     }
@@ -56,7 +77,7 @@ export class Gate {
     }
     this.usedJtis.set(claims.jti, claims.exp);
     this.pruneJtis();
-    return { ok: true, claims, tier, agent };
+    return { ok: true, claims, tier, agent: input ? sandboxAgent(agent, input) : agent, sandbox: input };
   }
 
   /** Reserve a slot synchronously right after admit() (before any await) so concurrent starts can't overshoot. */

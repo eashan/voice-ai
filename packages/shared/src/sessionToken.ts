@@ -1,5 +1,5 @@
 // Server-only (node:crypto). Imported via "@voiceforge/shared/sessionToken" so it never lands in the browser bundle.
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 /**
  * Short-lived, single-use session token (HS256 JWT) that lets one browser open one call.
@@ -16,6 +16,8 @@ export interface SessionClaims {
   aid: string;
   /** Caller tier. Tokens minted before tiers existed have none: treat as "public". */
   tier?: SessionTier;
+  /** Playground only: sandboxHash(greeting, prompt) of the visitor's prompt for this call. */
+  ph?: string;
   /** Unique token id: the orchestrator accepts each jti once. */
   jti: string;
   iat: number;
@@ -29,7 +31,7 @@ export const MIN_SECRET_LENGTH = 32;
 
 export function signSessionToken(
   secret: string,
-  claims: { wid: string; aid: string; tier?: SessionTier },
+  claims: { wid: string; aid: string; tier?: SessionTier; ph?: string },
   ttlSeconds = 60,
 ): string {
   const iat = Math.floor(Date.now() / 1000);
@@ -56,6 +58,12 @@ export function verifySessionToken(token: string, secret: string): SessionClaims
   const { wid, aid, jti, exp } = claims;
   if (typeof wid !== "string" || typeof aid !== "string" || typeof jti !== "string" || typeof exp !== "number") return null;
   if (claims.tier !== undefined && claims.tier !== "public" && claims.tier !== "invited") return null;
+  if (claims.ph !== undefined && (typeof claims.ph !== "string" || !/^[0-9a-f]{64}$/.test(claims.ph))) return null;
   if (exp <= Math.floor(Date.now() / 1000)) return null;
   return claims;
+}
+
+/** Hash binding a playground prompt + greeting to one session token (hex sha256). */
+export function sandboxHash(greeting: string, prompt: string): string {
+  return createHash("sha256").update(greeting).update("\0").update(prompt).digest("hex");
 }

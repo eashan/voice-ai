@@ -13,6 +13,11 @@ export const AgentConfigSchema = z.object({
    */
   access: z.enum(["public", "invited"]).default("invited"),
   systemPrompt: z.string(),
+  /**
+   * Playground: locked text appended after a visitor's edited prompt (the concierge's profile facts, so an edited
+   * persona still answers from the real résumé). M0: resolved from `sandboxSuffixFile`.
+   */
+  sandboxSuffix: z.string().optional(),
   llm: z.object({
     model: z.string().default("claude-haiku-5-5"),
     thinking: z.enum(["disabled", "adaptive"]).default("disabled"),
@@ -46,3 +51,4 @@ export const VOICE_STYLE_BLOCK = [
   "Respond in 1-3 short sentences unless the user asks for detail.",
   "Never use markdown, bullet points, lists, emojis, or URLs. Write numbers the way they are spoken.",
 ].join(" ");
+

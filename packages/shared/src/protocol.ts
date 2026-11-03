@@ -9,7 +9,11 @@ export type AgentState = "listening" | "user_speaking" | "thinking" | "speaking"
  * Binary frames = raw audio in the negotiated AudioFormat. Text frames = JSON messages below.
  */
 export type ClientMessage =
-  | { type: "start"; token: string }
+  /**
+   * Playground calls also send the visitor's prompt + greeting; the token carries their hash (`ph`), so the
+   * orchestrator can tell they weren't swapped after /api/session checked them.
+   */
+  | { type: "start"; token: string; prompt?: string; greeting?: string }
   /** Reply to stop_playback: how much of the reply's audio (since its audio_start) was actually played. */
   | { type: "playback_stopped"; reason: "barge_in"; turnId: number; playedMs: number }
   | { type: "hangup" };

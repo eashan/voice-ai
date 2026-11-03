@@ -6,6 +6,8 @@
   "access": "public",
   "greeting": "Hi! I'm Eashan's voice assistant. Ask me anything about his experience or projects.",
   "systemPromptFile": "portfolio-concierge.prompt.md",
+  "sandboxPromptFile": "portfolio-concierge.persona.md",
+  "sandboxSuffixFile": "portfolio-concierge.knowledge.md",
   "llm": {
     "model": "claude-haiku-4-5",
     "thinking": "disabled",

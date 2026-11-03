@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
 import type { AgentConfig, ClientMessage } from "@voiceforge/shared";
 import { BrowserWsTransport } from "./transport/BrowserWsTransport.js";
-import { loadAgents } from "./config/loadAgent.js";
+import { loadAgents, logSandboxPrompt } from "./config/loadAgent.js";
 import { ALLOWED_ORIGINS, LIMITS } from "./config/env.js";
 import { Gate } from "./gate/Gate.js";
 import { ElevenLabsStt } from "./providers/elevenlabs/ElevenLabsStt.js";
@@ -68,7 +68,7 @@ wss.on("connection", (ws) => {
       return;
     }
     if (msg.type === "start" && !session) {
-      const admission = gate.admit(msg.token);
+      const admission = gate.admit(msg.token, { prompt: msg.prompt, greeting: msg.greeting });
       if (!admission.ok) {
         console.log(`[session ${sessionId}] rejected: ${admission.reason}`);
         transport.sendEvent({ type: "error", code: admission.reason, message: admission.message });
@@ -76,8 +76,9 @@ wss.on("connection", (ws) => {
         return;
       }
       clearTimeout(startTimer);
-      const { agent, tier } = admission;
+      const { agent, tier, sandbox } = admission;
       gate.begin(sessionId, tier);
+      if (sandbox) void logSandboxPrompt(sessionId, agent.agentId, sandbox);
       session = new Session(sessionId, agent, transport, stt, new ClaudeLlm(agent.llm), ttsFor(agent), {
         maxCallMs: LIMITS.maxCallMs,
         silenceHangupMs: LIMITS.silenceHangupMs,
@@ -99,7 +100,7 @@ wss.on("connection", (ws) => {
         inputFormat: transport.inputFormat,
         outputFormat: transport.outputFormat,
       });
-      console.log(`[session ${sessionId}] started (${agent.agentId}, ${tier})`);
+      console.log(`[session ${sessionId}] started (${agent.agentId}, ${tier}${sandbox ? ", playground prompt" : ""})`);
       session.greet();
     } else if (msg.type === "playback_stopped") {
       session?.onPlaybackStopped(msg.turnId, msg.playedMs);

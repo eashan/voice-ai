@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { DEMOS, type Demo } from "../content/demos";
 import { useCall } from "../lib/CallContext";
@@ -35,7 +36,10 @@ export function DemoCards() {
         ))}
       </div>
       <p className="mono" style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-        Demos use fictional companies and customers. Best with headphones.
+        Demos use fictional companies and customers. Best with headphones.{" "}
+        <Link href="/playground" style={{ color: "var(--accent)" }}>
+          Edit the system prompt yourself →
+        </Link>
       </p>
     </section>
   );
@@ -248,6 +252,13 @@ function DemoCard({ demo }: { demo: Demo }) {
             {mine ? "Hang up" : otherCall ? "On a call" : `Call ${demo.agentName}`}
           </button>
         )}
+        <Link
+          href={`/playground?agent=${demo.slug}`}
+          className="mono"
+          style={{ minHeight: 44, display: "inline-flex", alignItems: "center", padding: "0 8px", fontSize: 13, color: "var(--body)" }}
+        >
+          View prompt →
+        </Link>
       </div>
 
       <p role="status" style={{ margin: 0, minHeight: 0, fontSize: 14, color: error ? "var(--danger)" : "var(--body)" }}>

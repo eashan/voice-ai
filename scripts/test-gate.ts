@@ -1,6 +1,6 @@
 // Usage: npx tsx scripts/test-gate.ts
 // Admission rules of the orchestrator's Gate: token × agent registry × caller tier, reserved slots, per-tier
-// budgets and usage persistence. Runs against a temp DATA_DIR; touches no network.
+// budgets, usage persistence and playground prompts (hash binding, caps, guard order). Runs against a temp DATA_DIR; touches no network.
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,7 +20,9 @@ Object.assign(process.env, {
 
 // env.ts reads process.env at import time, so import after setting it.
 const { AgentConfigSchema } = await import("@voiceforge/shared");
-const { signSessionToken } = await import("@voiceforge/shared/sessionToken");
+const { signSessionToken, sandboxHash } = await import("@voiceforge/shared/sessionToken");
+const { SANDBOX_GUARD, SANDBOX_LIMITS } = await import("@voiceforge/shared");
+const { buildSystemPrompt } = await import("../apps/orchestrator/src/config/loadAgent");
 const { Gate } = await import("../apps/orchestrator/src/gate/Gate");
 
 const base = {
@@ -33,7 +35,13 @@ const base = {
   stt: { provider: "elevenlabs" },
   turnTaking: {},
 };
-const concierge = AgentConfigSchema.parse({ ...base, agentId: "agent_portfolio_concierge", name: "C", access: "public" });
+const concierge = AgentConfigSchema.parse({
+  ...base,
+  agentId: "agent_portfolio_concierge",
+  name: "C",
+  access: "public",
+  sandboxSuffix: "# Knowledge\n\nFACTS",
+});
 const debt = AgentConfigSchema.parse({ ...base, agentId: "agent_debt_collection", name: "D", access: "invited" });
 const unspecified = AgentConfigSchema.parse({ ...base, agentId: "agent_no_access", name: "U" });
 const registry = new Map([concierge, debt, unspecified].map((a) => [a.agentId, a]));
@@ -125,6 +133,53 @@ console.log("per-tier budgets + persistence");
   check("usage persisted per tier", () => {
     assert.equal(typeof saved.seconds.public, "number");
     assert.equal(typeof saved.seconds.invited, "number");
+  });
+}
+
+console.log("playground prompts");
+{
+  const gate = new Gate(registry);
+  const prompt = "You are Captain Riya, a pirate debt collector.";
+  const greeting = "Ahoy, Rahul!";
+  const ph = sandboxHash(greeting, prompt);
+  const ptok = (aid: string, tier: "public" | "invited", hash = ph) =>
+    signSessionToken(SECRET, { wid: "ws_demo", aid, tier, ph: hash });
+
+  check("matching prompt → ok, agent swapped behind the guard", () => {
+    const r = gate.admit(ptok("agent_debt_collection", "invited"), { prompt, greeting });
+    assert.ok(r.ok);
+    assert.equal(r.agent.greeting, greeting);
+    assert.ok(r.agent.systemPrompt.startsWith(SANDBOX_GUARD));
+    assert.ok(r.agent.systemPrompt.endsWith(prompt));
+    assert.deepEqual(r.sandbox, { prompt, greeting });
+    assert.equal(debt.systemPrompt, "x", "base agent untouched");
+  });
+  check("edited prompt → sandbox_mismatch", () =>
+    assert.equal(reason(gate.admit(ptok("agent_debt_collection", "invited"), { prompt: prompt + "!", greeting })), "sandbox_mismatch"));
+  check("edited greeting → sandbox_mismatch", () =>
+    assert.equal(reason(gate.admit(ptok("agent_debt_collection", "invited"), { prompt, greeting: "Hi" })), "sandbox_mismatch"));
+  check("hash but no prompt sent → sandbox_mismatch", () =>
+    assert.equal(reason(gate.admit(ptok("agent_debt_collection", "invited"))), "sandbox_mismatch"));
+  check("public tier with a hash → forbidden (even for the public agent)", () =>
+    assert.equal(reason(gate.admit(ptok("agent_portfolio_concierge", "public"), { prompt, greeting })), "forbidden"));
+  check("over the cap → sandbox_mismatch even with a matching hash", () => {
+    const long = "x".repeat(SANDBOX_LIMITS.promptChars + 1);
+    const r = gate.admit(ptok("agent_debt_collection", "invited", sandboxHash(greeting, long)), { prompt: long, greeting });
+    assert.equal(reason(r), "sandbox_mismatch");
+  });
+  check("no hash in the token → prompt ignored, base agent", () => {
+    const r = gate.admit(tok("agent_debt_collection", "invited"), { prompt, greeting });
+    assert.ok(r.ok);
+    assert.equal(r.sandbox, null);
+    assert.equal(r.agent.systemPrompt, "x");
+  });
+  check("concierge: guard → visitor prompt → locked facts → voice style", () => {
+    const r = gate.admit(ptok("agent_portfolio_concierge", "invited"), { prompt, greeting });
+    assert.ok(r.ok);
+    const sys = buildSystemPrompt(r.agent);
+    const at = (s: string) => sys.indexOf(s);
+    assert.ok(at(SANDBOX_GUARD) === 0 && at(prompt) > 0 && at("FACTS") > at(prompt));
+    assert.ok(at("You are speaking out loud") > at("FACTS"));
   });
 }
 

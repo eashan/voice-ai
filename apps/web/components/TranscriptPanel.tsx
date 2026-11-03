@@ -87,7 +87,7 @@ export function TranscriptPanel({ status, turns }: { status: CallStatus; turns: 
   );
 }
 
-function Line({ who, color, children }: { who: string; color: string; children: React.ReactNode }) {
+export function Line({ who, color, children }: { who: string; color: string; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", gap: 10, fontSize: 14, lineHeight: 1.5 }}>
       <span className="mono" style={{ flex: "0 0 44px", fontSize: 12, color, paddingTop: 2 }}>

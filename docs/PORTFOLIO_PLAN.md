@@ -189,6 +189,25 @@ M1 hook: tool calls (`lookup_policy`, `book_slot`, `create_payment_plan`) via th
 - **Unlock:** `/api/unlock` sets a signed, httpOnly, 30-day `vf_invite` cookie; `/api/session` accepts it as invited
   proof. Status dots come from the invited tier (`ready | busy | resting`).
 
+## Step 6 decisions (playground)
+
+- **Defaults = the real prompts.** `scripts/gen-playground-defaults.ts` copies each agent's greeting + prompt into
+  `apps/web/content/agentPrompts.generated.ts` (`--check` catches drift), so "View prompt" shows what runs.
+- **Concierge tab edits the persona only** (the 1.4k template above `# Knowledge`). `gen-concierge-prompt.ts` also
+  writes `portfolio-concierge.persona.md` + `.knowledge.md`; the facts are attached after an edited prompt, locked
+  (`sandboxSuffixFile`), so a visitor can't edit lies about Eashan into the concierge. The cap stays 4,000.
+- **Editable greeting** (≤ 200 chars), hashed with the prompt: `ph = sha256(greeting \0 prompt)` in the token.
+  Orchestrator re-hashes on `start`, closes with `sandbox_mismatch` on any difference; a token without `ph` ignores
+  any prompt sent. A Turnstile pass never gets a `ph` (playground calls are always `invited`).
+- **System prompt order:** `SANDBOX_GUARD` → visitor prompt → locked suffix (concierge) → `VOICE_STYLE_BLOCK`.
+- **Logging:** `/data/sandbox-prompts.jsonl`, one line per call: time, session, agent, prompt hash, length, first 200
+  chars of prompt + greeting.
+- **Open page, gated calls:** anyone can read and edit the prompts; "Start call" becomes an unlock box without the
+  invite. Edits are kept per tab until reload; tabs and editor lock during a call. `?agent=<slug>` picks the tab.
+- **Transcript** is a card on the page (no floating panel there); the waterfall shows the last complete turn.
+- The "● invite unlocked" pill sits in the playground header, not the nav (the nav is a server component outside the
+  call context).
+
 ## What you need to do yourself
 
 - [x] Pick a direction: B + C, light and dark.

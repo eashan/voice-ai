@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-/** Only routes that exist. Add `02 Playground` in build step 6. */
 const NAV = [
   { href: "/", label: "01 Demos" },
+  { href: "/playground", label: "02 Playground" },
   { href: "/experience", label: "03 Experience" },
 ] as const;
 

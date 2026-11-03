@@ -23,6 +23,9 @@ export interface SessionAuth {
   agentId?: string;
   code?: string;
   turnstileToken?: string;
+  /** Playground: the visitor's prompt + greeting for this call (hashed into the token, resent on `start`). */
+  prompt?: string;
+  greeting?: string;
 }
 
 export interface StartResult {
@@ -215,7 +218,11 @@ export function useVoiceCall() {
 
     const ws = new WebSocket(session.wsUrl);
     ws.binaryType = "arraybuffer";
-    ws.onopen = () => ws.send(JSON.stringify({ type: "start", token: session.token } satisfies ClientMessage));
+    const startMsg: ClientMessage =
+      auth.prompt !== undefined
+        ? { type: "start", token: session.token, prompt: auth.prompt, greeting: auth.greeting }
+        : { type: "start", token: session.token };
+    ws.onopen = () => ws.send(JSON.stringify(startMsg));
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return playPcm(ev.data as ArrayBuffer);
       onServerMessage(JSON.parse(ev.data) as ServerMessage);
