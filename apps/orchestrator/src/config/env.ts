@@ -15,7 +15,13 @@ export const LIMITS = {
   maxConcurrent: num("MAX_CONCURRENT_SESSIONS", 2),
   maxCallMs: num("MAX_CALL_SECONDS", 180) * 1000,
   silenceHangupMs: num("SILENCE_HANGUP_SECONDS", 20) * 1000,
-  dailyBudgetSeconds: num("DAILY_MINUTE_BUDGET", 60) * 60,
+  /** Daily minutes per caller tier (UTC day). Invited minutes are for invite-code holders (demo leads). */
+  budgetSeconds: {
+    public: num("PUBLIC_MINUTES", 40) * 60,
+    invited: num("INVITED_MINUTES", 20) * 60,
+  },
+  /** Slots of maxConcurrent that public callers can't take, so an invited lead never hears "busy". */
+  reservedInvitedSlots: Math.max(0, Number(process.env.RESERVED_INVITED_SLOTS ?? 1)),
 };
 
 /** Browser origins allowed to open a WebSocket (comma-separated). Unset = allow any (local dev only). */

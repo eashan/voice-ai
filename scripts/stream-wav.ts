@@ -7,6 +7,7 @@
 //   BARGE_IN_MS=800   start the next file 800 ms after the agent's audio starts (tests barge-in)
 //   OUT_WAV=out.wav   save all agent audio received to a WAV file
 //   ORIGIN=https://…  Origin header to send (needed against the deployed orchestrator)
+//   AGENT=agent_…     agent to call (default: the concierge); TIER=public|invited (default invited)
 //   SESSION_JWT_SECRET (from .env) is used to mint a session token, as the web app does after the invite code.
 import { readFileSync, writeFileSync } from "node:fs";
 import WebSocket from "ws";
@@ -96,7 +97,8 @@ async function run() {
 
 const secret = process.env.SESSION_JWT_SECRET;
 if (!secret) throw new Error("SESSION_JWT_SECRET not set: run with --env-file=.env");
-const token = signSessionToken(secret, { wid: "ws_demo", aid: "agent_portfolio_concierge" });
+const tier = process.env.TIER === "public" ? "public" : "invited";
+const token = signSessionToken(secret, { wid: "ws_demo", aid: process.env.AGENT ?? "agent_portfolio_concierge", tier });
 ws.on("open", () => ws.send(JSON.stringify({ type: "start", token })));
 ws.on("message", (data, isBinary) => {
   if (isBinary) {

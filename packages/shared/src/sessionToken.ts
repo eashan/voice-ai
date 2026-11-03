@@ -6,11 +6,16 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
  * Issued by the web app after the invite code checks out; verified by the orchestrator on `start`.
  * M1: issued after real auth, with the caller's real workspace/agent.
  */
+/** Caller tier: "public" = passed the bot check; "invited" = presented the invite code. */
+export type SessionTier = "public" | "invited";
+
 export interface SessionClaims {
   /** workspaceId */
   wid: string;
   /** agentId */
   aid: string;
+  /** Caller tier. Tokens minted before tiers existed have none: treat as "public". */
+  tier?: SessionTier;
   /** Unique token id: the orchestrator accepts each jti once. */
   jti: string;
   iat: number;
@@ -22,7 +27,11 @@ const HEADER = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
 
 export const MIN_SECRET_LENGTH = 32;
 
-export function signSessionToken(secret: string, claims: { wid: string; aid: string }, ttlSeconds = 60): string {
+export function signSessionToken(
+  secret: string,
+  claims: { wid: string; aid: string; tier?: SessionTier },
+  ttlSeconds = 60,
+): string {
   const iat = Math.floor(Date.now() / 1000);
   const payload = b64url(JSON.stringify({ ...claims, jti: randomUUID(), iat, exp: iat + ttlSeconds }));
   const sig = createHmac("sha256", secret).update(`${HEADER}.${payload}`).digest("base64url");
@@ -46,6 +55,7 @@ export function verifySessionToken(token: string, secret: string): SessionClaims
   }
   const { wid, aid, jti, exp } = claims;
   if (typeof wid !== "string" || typeof aid !== "string" || typeof jti !== "string" || typeof exp !== "number") return null;
+  if (claims.tier !== undefined && claims.tier !== "public" && claims.tier !== "invited") return null;
   if (exp <= Math.floor(Date.now() / 1000)) return null;
   return claims;
 }

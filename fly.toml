@@ -11,7 +11,10 @@ primary_region = "iad"
   MAX_CONCURRENT_SESSIONS = "2"
   MAX_CALL_SECONDS = "180"
   SILENCE_HANGUP_SECONDS = "20"
-  DAILY_MINUTE_BUDGET = "60"
+  # Daily minutes per caller tier; public calls leave RESERVED_INVITED_SLOTS free for invite-code holders.
+  PUBLIC_MINUTES = "40"
+  INVITED_MINUTES = "20"
+  RESERVED_INVITED_SLOTS = "1"
   # DEMO_ENABLED, ALLOWED_ORIGINS and keys are Fly secrets.
 
 # Daily usage + latency logs survive restarts and auto-stop.

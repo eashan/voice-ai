@@ -1,13 +1,15 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { signSessionToken, MIN_SECRET_LENGTH } from "@voiceforge/shared/sessionToken";
+import { signSessionToken, MIN_SECRET_LENGTH, type SessionTier } from "@voiceforge/shared/sessionToken";
 import { turnstileEnabled } from "../../../lib/turnstileConfig";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Must match the orchestrator's agent config. M1: comes from the signed-in workspace. */
+/** Must match the orchestrator's agent configs. M1: comes from the signed-in workspace. */
 const WORKSPACE_ID = "ws_demo";
-const AGENT_ID = "agent_portfolio_concierge";
+const DEFAULT_AGENT_ID = "agent_portfolio_concierge";
+/** Shape check only: the orchestrator's registry decides whether the agent exists and who may call it. */
+const AGENT_ID_RE = /^agent_[a-z0-9_]{1,48}$/;
 const TOKEN_TTL_SECONDS = 60;
 
 /** Best-effort brute-force brake on invite codes (per serverless instance). The Fly-side budget is the real backstop. */
@@ -46,19 +48,26 @@ export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   let code = "";
   let turnstileToken = "";
+  let agentId = DEFAULT_AGENT_ID;
   try {
-    const body = (await req.json()) as { code?: unknown; turnstileToken?: unknown };
+    const body = (await req.json()) as { code?: unknown; turnstileToken?: unknown; agentId?: unknown };
     if (typeof body.code === "string") code = body.code.trim();
     if (typeof body.turnstileToken === "string") turnstileToken = body.turnstileToken;
+    if (typeof body.agentId === "string") agentId = body.agentId;
   } catch {
     // fall through: no proof
   }
+  if (!AGENT_ID_RE.test(agentId)) return Response.json({ error: "Unknown agent." }, { status: 400 });
 
+  // Tier = what the visitor proved: the bot check → public; the invite code → invited.
+  let tier: SessionTier;
   let admitted = false;
   if (turnstileEnabled() && turnstileToken) {
+    tier = "public";
     admitted = await verifyTurnstile(turnstileToken, ip);
     if (!admitted) return Response.json({ error: "Couldn't verify the request. Please try again." }, { status: 401 });
   } else {
+    tier = "invited";
     const now = Date.now();
     const a = attempts.get(ip);
     const entry = a && a.resetAt > now ? a : { n: 0, resetAt: now + WINDOW_MS };
@@ -74,7 +83,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const token = signSessionToken(secret, { wid: WORKSPACE_ID, aid: AGENT_ID }, TOKEN_TTL_SECONDS);
+  const token = signSessionToken(secret, { wid: WORKSPACE_ID, aid: agentId, tier }, TOKEN_TTL_SECONDS);
   const wsUrl =
     process.env.ORCHESTRATOR_WS_URL ?? process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? "ws://localhost:8787/ws";
   return Response.json({ token, wsUrl }, { headers: { "cache-control": "no-store" } });

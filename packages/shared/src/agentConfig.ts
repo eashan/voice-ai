@@ -7,6 +7,11 @@ export const AgentConfigSchema = z.object({
   version: z.number().int().positive(),
   name: z.string(),
   greeting: z.string(),
+  /**
+   * Who may call this agent on the demo site. "public" = anyone (bot-checked); "invited" = invite-code holders.
+   * Enforced by the orchestrator's Gate against the session token's `tier` claim. Defaults to the safer one.
+   */
+  access: z.enum(["public", "invited"]).default("invited"),
   systemPrompt: z.string(),
   llm: z.object({
     model: z.string().default("claude-haiku-5-5"),

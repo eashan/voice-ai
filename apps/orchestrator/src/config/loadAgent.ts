@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { AgentConfigSchema, VOICE_STYLE_BLOCK, type AgentConfig } from "@voiceforge/shared";
 
@@ -16,6 +16,22 @@ export function loadAgent(name = "portfolio-concierge"): AgentConfig {
     delete raw.systemPromptFile;
   }
   return AgentConfigSchema.parse(raw);
+}
+
+/**
+ * Every agent in agents/ (one `<name>.json` each, optionally with a prompt file), keyed by agentId.
+ * M1: the agents table, scoped by workspace.
+ */
+export function loadAgents(): Map<string, AgentConfig> {
+  const registry = new Map<string, AgentConfig>();
+  const files = readdirSync(fileURLToPath(AGENTS_DIR)).filter((f) => f.endsWith(".json"));
+  for (const f of files.sort()) {
+    const agent = loadAgent(f.replace(/\.json$/, ""));
+    if (registry.has(agent.agentId)) throw new Error(`duplicate agentId ${agent.agentId} in ${f}`);
+    registry.set(agent.agentId, agent);
+  }
+  if (registry.size === 0) throw new Error("no agents found in agents/");
+  return registry;
 }
 
 /** Static content first so the prompt-cache prefix stays stable (PRD LR-4). */

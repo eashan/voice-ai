@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
-import type { ClientMessage } from "@voiceforge/shared";
+import type { AgentConfig, ClientMessage } from "@voiceforge/shared";
 import { BrowserWsTransport } from "./transport/BrowserWsTransport.js";
-import { loadAgent } from "./config/loadAgent.js";
+import { loadAgents } from "./config/loadAgent.js";
 import { ALLOWED_ORIGINS, LIMITS } from "./config/env.js";
 import { Gate } from "./gate/Gate.js";
 import { ElevenLabsStt } from "./providers/elevenlabs/ElevenLabsStt.js";
@@ -19,23 +19,28 @@ const START_TIMEOUT_MS = 10_000;
 /** Largest inbound frame we accept (audio frames are 640 B; JSON is tiny). */
 const MAX_PAYLOAD_BYTES = 64 * 1024;
 
-const agent = loadAgent();
+const agents = loadAgents();
 // A/B override for latency experiments: ENDPOINTER=provider_vad|silero_vad
 if (process.env.ENDPOINTER === "provider_vad" || process.env.ENDPOINTER === "silero_vad") {
-  agent.turnTaking.endpointer = process.env.ENDPOINTER;
+  for (const a of agents.values()) a.turnTaking.endpointer = process.env.ENDPOINTER;
 }
-const gate = new Gate({ wid: agent.workspaceId, aid: agent.agentId });
+const gate = new Gate(agents);
 const stt = new ElevenLabsStt();
-const TTS_PROVIDERS: Record<typeof agent.voice.provider, () => TtsProvider> = {
-  deepgram: () => new DeepgramTts(),
-  elevenlabs: () => new ElevenLabsTts(),
+/** One provider instance per vendor, created on first use (each call still opens its own socket). */
+const ttsProviders = new Map<AgentConfig["voice"]["provider"], TtsProvider>();
+const ttsFor = (agent: AgentConfig): TtsProvider => {
+  let p = ttsProviders.get(agent.voice.provider);
+  if (!p) {
+    p = agent.voice.provider === "elevenlabs" ? new ElevenLabsTts() : new DeepgramTts();
+    ttsProviders.set(agent.voice.provider, p);
+  }
+  return p;
 };
-const tts = TTS_PROVIDERS[agent.voice.provider]();
 
 const http = createServer((req, res) => {
   if (req.url === "/healthz") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, agent: agent.agentId, ...gate.status() }));
+    res.end(JSON.stringify({ ok: true, agents: [...agents.keys()], ...gate.status() }));
     return;
   }
   res.writeHead(404).end();
@@ -71,11 +76,12 @@ wss.on("connection", (ws) => {
         return;
       }
       clearTimeout(startTimer);
-      gate.begin(sessionId);
-      session = new Session(sessionId, agent, transport, stt, new ClaudeLlm(agent.llm), tts, {
+      const { agent, tier } = admission;
+      gate.begin(sessionId, tier);
+      session = new Session(sessionId, agent, transport, stt, new ClaudeLlm(agent.llm), ttsFor(agent), {
         maxCallMs: LIMITS.maxCallMs,
         silenceHangupMs: LIMITS.silenceHangupMs,
-        budgetExhausted: () => gate.budgetLeftSeconds() <= 0,
+        budgetExhausted: () => gate.budgetLeftSeconds(tier) <= 0,
       });
       try {
         await session.start();
@@ -86,8 +92,14 @@ wss.on("connection", (ws) => {
         transport.close();
         return;
       }
-      transport.sendEvent({ type: "ready", sessionId, inputFormat: transport.inputFormat, outputFormat: transport.outputFormat });
-      console.log(`[session ${sessionId}] started`);
+      transport.sendEvent({
+        type: "ready",
+        sessionId,
+        agentId: agent.agentId,
+        inputFormat: transport.inputFormat,
+        outputFormat: transport.outputFormat,
+      });
+      console.log(`[session ${sessionId}] started (${agent.agentId}, ${tier})`);
       session.greet();
     } else if (msg.type === "playback_stopped") {
       session?.onPlaybackStopped(msg.turnId, msg.playedMs);
@@ -107,9 +119,14 @@ wss.on("connection", (ws) => {
 http.listen(PORT, () => {
   const s = gate.status();
   console.log(
-    `orchestrator listening on :${PORT} (agent ${agent.agentId}, endpointer ${agent.turnTaking.endpointer}, ` +
-      `llm ${agent.llm.model}, tts ${agent.voice.provider}/${agent.voice.voiceId}, ` +
-      `demo ${s.enabled ? "enabled" : "DISABLED"}, ${s.budgetLeftMinutes} min budget left today, ` +
+    `orchestrator listening on :${PORT} (demo ${s.enabled ? "enabled" : "DISABLED"}, ` +
+      `minutes left today: public ${s.tiers.public.budgetLeftMinutes}, invited ${s.tiers.invited.budgetLeftMinutes}, ` +
       `origins ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(" ") : "any (dev)"})`,
   );
+  for (const a of agents.values()) {
+    console.log(
+      `  agent ${a.agentId} [${a.access}]: llm ${a.llm.model}, tts ${a.voice.provider}/${a.voice.voiceId}, ` +
+        `endpointer ${a.turnTaking.endpointer} ${a.turnTaking.silenceMs}ms`,
+    );
+  }
 });

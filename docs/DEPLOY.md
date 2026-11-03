@@ -59,8 +59,9 @@ fly secrets set ALLOWED_ORIGINS=https://<your-project>.vercel.app
 
 ## Operating
 - **Kill switch:** `fly secrets set DEMO_ENABLED=false` (restarts; new calls rejected). Re-enable with `true`.
-- **Caps** (`fly.toml [env]`): 2 concurrent calls, 3-minute calls, 20 s silence hangup, 60 min/day (UTC).
-- **Status:** `curl …/healthz` → `{enabled, activeCalls, budgetLeftMinutes}`. Logs: `fly logs` (one `[turn]` line per turn).
+- **Caps** (`fly.toml [env]`): 2 concurrent calls (public callers can hold at most 1; the other is reserved for invite-code
+  holders), 3-minute calls, 20 s silence hangup, 40 public + 20 invited min/day (UTC). Usage is in `/data/usage.json`.
+- **Status:** `curl …/healthz` → `{enabled, agents, activeCalls, maxConcurrent, tiers: {public, invited}}`. Logs: `fly logs` (one `[turn]` line per turn).
 - **Rotate the invite code:** change `DEMO_INVITE_CODE` in Vercel and redeploy. Rotating `SESSION_JWT_SECRET` needs both sides.
 
 ## Live (2026-11-02)

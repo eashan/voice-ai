@@ -162,6 +162,17 @@ M1 hook: tool calls (`lookup_policy`, `book_slot`, `create_payment_plan`) via th
   byte 126, first audible out 78. Still above the 700 ms bar; the next lever is the chunker wait (first chunk sooner).
 - **Availability:** `/api/status` proxies the orchestrator's `/healthz` (also the Fly pre-warm) → `ready | busy | resting`.
 
+## Step 4 decisions (2026-11-03)
+
+- **Registry:** every `apps/orchestrator/agents/*.json` is loaded at boot (`loadAgents()`); TTS provider chosen per agent.
+- **Access:** each agent declares `"access": "public" | "invited"` (default `invited`). The concierge is `public`.
+- **Tier claim:** `/api/session` signs `tier` from the proof: Turnstile → `public`, invite code → `invited`. Tokens
+  without a tier count as `public`. The Gate checks: known agent, matching workspace, access vs tier, slot, budget.
+- **Limits:** 2 concurrent calls; public callers hold at most 1 (`RESERVED_INVITED_SLOTS=1`). `PUBLIC_MINUTES=40`,
+  `INVITED_MINUTES=20` per UTC day, tracked separately in `/data/usage.json`. `/healthz` reports both tiers.
+- Until the Turnstile keys are set, concierge callers use the invite code, so they count as `invited`.
+- Tests: `npx tsx scripts/test-gate.ts` (23 checks).
+
 ## What you need to do yourself
 
 - [x] Pick a direction: B + C, light and dark.

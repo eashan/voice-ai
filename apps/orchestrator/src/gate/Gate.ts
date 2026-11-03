@@ -1,25 +1,34 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MIN_SECRET_LENGTH, verifySessionToken, type SessionClaims } from "@voiceforge/shared/sessionToken";
+import type { AgentConfig } from "@voiceforge/shared";
+import { MIN_SECRET_LENGTH, verifySessionToken, type SessionClaims, type SessionTier } from "@voiceforge/shared/sessionToken";
 import { DATA_DIR, LIMITS } from "../config/env.js";
 
-export type Rejection = "disabled" | "unauthorized" | "busy" | "budget_exhausted";
+export type Rejection = "disabled" | "unauthorized" | "forbidden" | "busy" | "budget_exhausted";
 
+export type Admission =
+  | { ok: true; claims: SessionClaims; tier: SessionTier; agent: AgentConfig }
+  | { ok: false; reason: Rejection; message: string };
+
+const TIERS: SessionTier[] = ["public", "invited"];
 const USAGE_FILE = join(DATA_DIR, "usage.json");
 const today = () => new Date().toISOString().slice(0, 10); // UTC day
 
+type Usage = { day: string; seconds: Record<SessionTier, number> };
+
 /**
- * Admission control for the public demo: kill switch, signed single-use session token,
- * concurrency cap and a daily minute budget (persisted, so restarts don't reset it).
+ * Admission control for the demo site: kill switch, signed single-use session token, agent registry +
+ * per-agent access, concurrency cap (with slots reserved for invited callers) and a daily minute budget per
+ * caller tier (persisted, so restarts don't reset it).
  * Single process only — fine for one Fly machine; M1 moves this to Redis.
  */
 export class Gate {
   private readonly secret: string;
   private readonly usedJtis = new Map<string, number>(); // jti → exp (s)
-  private readonly active = new Map<string, number>(); // sessionId → start (ms, wall clock)
-  private usage: { day: string; seconds: number };
+  private readonly active = new Map<string, { start: number; tier: SessionTier }>(); // sessionId → call
+  private usage: Usage;
 
-  constructor(private readonly expected: { wid: string; aid: string }) {
+  constructor(private readonly registry: Map<string, AgentConfig>) {
     const secret = process.env.SESSION_JWT_SECRET ?? "";
     if (secret.length < MIN_SECRET_LENGTH) {
       throw new Error(`SESSION_JWT_SECRET must be set and at least ${MIN_SECRET_LENGTH} characters`);
@@ -28,57 +37,83 @@ export class Gate {
     this.usage = this.loadUsage();
   }
 
-  admit(token: unknown): { ok: true; claims: SessionClaims } | { ok: false; reason: Rejection; message: string } {
+  admit(token: unknown): Admission {
     if (!LIMITS.enabled) return { ok: false, reason: "disabled", message: "The demo is paused right now." };
     const claims = typeof token === "string" ? verifySessionToken(token, this.secret) : null;
-    if (!claims || claims.wid !== this.expected.wid || claims.aid !== this.expected.aid || this.usedJtis.has(claims.jti)) {
+    const agent = claims ? this.registry.get(claims.aid) : undefined;
+    if (!claims || !agent || claims.wid !== agent.workspaceId || this.usedJtis.has(claims.jti)) {
       return { ok: false, reason: "unauthorized", message: "Invalid or expired session token." };
     }
-    if (this.active.size >= LIMITS.maxConcurrent) {
+    const tier: SessionTier = claims.tier ?? "public";
+    if (agent.access === "invited" && tier !== "invited") {
+      return { ok: false, reason: "forbidden", message: "This demo needs an invite code." };
+    }
+    if (!this.hasSlot(tier)) {
       return { ok: false, reason: "busy", message: "The demo is busy. Try again in a few minutes." };
     }
-    if (this.budgetLeftSeconds() <= 0) {
+    if (this.budgetLeftSeconds(tier) <= 0) {
       return { ok: false, reason: "budget_exhausted", message: "Today's demo minutes are used up. Try again tomorrow." };
     }
     this.usedJtis.set(claims.jti, claims.exp);
     this.pruneJtis();
-    return { ok: true, claims };
+    return { ok: true, claims, tier, agent };
   }
 
   /** Reserve a slot synchronously right after admit() (before any await) so concurrent starts can't overshoot. */
-  begin(sessionId: string): void {
-    this.active.set(sessionId, Date.now());
+  begin(sessionId: string, tier: SessionTier): void {
+    this.active.set(sessionId, { start: Date.now(), tier });
   }
 
   end(sessionId: string): void {
-    const start = this.active.get(sessionId);
-    if (start == null) return;
+    const call = this.active.get(sessionId);
+    if (!call) return;
     this.active.delete(sessionId);
     this.rollDay();
-    this.usage.seconds += (Date.now() - start) / 1000;
+    this.usage.seconds[call.tier] += (Date.now() - call.start) / 1000;
     this.saveUsage();
   }
 
-  /** Remaining daily budget, counting calls in progress. */
-  budgetLeftSeconds(): number {
+  /** Invited callers may use any slot; public callers leave `reservedInvitedSlots` free. */
+  private hasSlot(tier: SessionTier): boolean {
+    if (this.active.size >= LIMITS.maxConcurrent) return false;
+    if (tier === "invited") return true;
+    const publicCap = Math.max(0, LIMITS.maxConcurrent - LIMITS.reservedInvitedSlots);
+    return this.activeCount("public") < publicCap;
+  }
+
+  private activeCount(tier: SessionTier): number {
+    let n = 0;
+    for (const c of this.active.values()) if (c.tier === tier) n++;
+    return n;
+  }
+
+  /** Remaining daily budget for a tier, counting that tier's calls in progress. */
+  budgetLeftSeconds(tier: SessionTier): number {
     this.rollDay();
     const now = Date.now();
     let live = 0;
-    for (const start of this.active.values()) live += (now - start) / 1000;
-    return LIMITS.dailyBudgetSeconds - this.usage.seconds - live;
+    for (const c of this.active.values()) if (c.tier === tier) live += (now - c.start) / 1000;
+    return LIMITS.budgetSeconds[tier] - this.usage.seconds[tier] - live;
   }
 
   status() {
+    const tier = (t: SessionTier) => ({
+      budgetLeftMinutes: Math.max(0, Math.floor(this.budgetLeftSeconds(t) / 60)),
+      activeCalls: this.activeCount(t),
+      slotFree: this.hasSlot(t),
+    });
     return {
       enabled: LIMITS.enabled,
       activeCalls: this.active.size,
       maxConcurrent: LIMITS.maxConcurrent,
-      budgetLeftMinutes: Math.max(0, Math.floor(this.budgetLeftSeconds() / 60)),
+      /** Public tier, kept for older clients. */
+      budgetLeftMinutes: Math.max(0, Math.floor(this.budgetLeftSeconds("public") / 60)),
+      tiers: { public: tier("public"), invited: tier("invited") },
     };
   }
 
   private rollDay(): void {
-    if (this.usage.day !== today()) this.usage = { day: today(), seconds: 0 };
+    if (this.usage.day !== today()) this.usage = { day: today(), seconds: { public: 0, invited: 0 } };
   }
 
   private pruneJtis(): void {
@@ -86,14 +121,19 @@ export class Gate {
     for (const [jti, exp] of this.usedJtis) if (exp < nowS) this.usedJtis.delete(jti);
   }
 
-  private loadUsage(): { day: string; seconds: number } {
+  private loadUsage(): Usage {
+    const fresh: Usage = { day: today(), seconds: { public: 0, invited: 0 } };
     try {
-      const u = JSON.parse(readFileSync(USAGE_FILE, "utf8"));
-      if (u.day === today() && typeof u.seconds === "number") return u;
+      const u = JSON.parse(readFileSync(USAGE_FILE, "utf8")) as { day?: string; seconds?: unknown };
+      if (u.day !== today()) return fresh;
+      // Pre-tier format: { day, seconds: number } → count it all as public.
+      if (typeof u.seconds === "number") return { day: u.day, seconds: { public: u.seconds, invited: 0 } };
+      const s = u.seconds as Partial<Record<SessionTier, unknown>>;
+      for (const t of TIERS) if (typeof s?.[t] === "number") fresh.seconds[t] = s[t] as number;
+      return fresh;
     } catch {
-      // first run
+      return fresh; // first run
     }
-    return { day: today(), seconds: 0 };
   }
 
   private saveUsage(): void {

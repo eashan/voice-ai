@@ -15,7 +15,7 @@ export type ClientMessage =
   | { type: "hangup" };
 
 export type ServerMessage =
-  | { type: "ready"; sessionId: string; inputFormat: AudioFormat; outputFormat: AudioFormat }
+  | { type: "ready"; sessionId: string; agentId: string; inputFormat: AudioFormat; outputFormat: AudioFormat }
   | { type: "state"; state: AgentState }
   | { type: "transcript"; turnId: number; text: string; final: boolean }
   /** turnId -1 = greeting. */

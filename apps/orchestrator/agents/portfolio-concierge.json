@@ -3,6 +3,7 @@
   "agentId": "agent_portfolio_concierge",
   "version": 1,
   "name": "Portfolio Concierge",
+  "access": "public",
   "greeting": "Hi! I'm Eashan's voice assistant. Ask me anything about his experience or projects.",
   "systemPromptFile": "portfolio-concierge.prompt.md",
   "llm": {
