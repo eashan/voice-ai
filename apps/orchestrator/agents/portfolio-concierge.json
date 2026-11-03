@@ -12,7 +12,7 @@
   },
   "voice": {
     "provider": "deepgram",
-    "voiceId": "aura-2-thalia-en"
+    "voiceId": "aura-2-orpheus-en"
   },
   "stt": {
     "provider": "elevenlabs",

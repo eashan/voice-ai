@@ -10,6 +10,8 @@ import { ElevenLabsStt } from "./providers/elevenlabs/ElevenLabsStt.js";
 import { Session } from "./session/Session.js";
 import { ClaudeLlm } from "./providers/anthropic/ClaudeLlm.js";
 import { DeepgramTts } from "./providers/deepgram/DeepgramTts.js";
+import { ElevenLabsTts } from "./providers/elevenlabs/ElevenLabsTts.js";
+import type { TtsProvider } from "./providers/types.js";
 
 const PORT = Number(process.env.ORCHESTRATOR_PORT ?? 8787);
 /** A connection must send a valid `start` within this time. */
@@ -24,7 +26,11 @@ if (process.env.ENDPOINTER === "provider_vad" || process.env.ENDPOINTER === "sil
 }
 const gate = new Gate({ wid: agent.workspaceId, aid: agent.agentId });
 const stt = new ElevenLabsStt();
-const tts = new DeepgramTts();
+const TTS_PROVIDERS: Record<typeof agent.voice.provider, () => TtsProvider> = {
+  deepgram: () => new DeepgramTts(),
+  elevenlabs: () => new ElevenLabsTts(),
+};
+const tts = TTS_PROVIDERS[agent.voice.provider]();
 
 const http = createServer((req, res) => {
   if (req.url === "/healthz") {
@@ -102,6 +108,7 @@ http.listen(PORT, () => {
   const s = gate.status();
   console.log(
     `orchestrator listening on :${PORT} (agent ${agent.agentId}, endpointer ${agent.turnTaking.endpointer}, ` +
+      `llm ${agent.llm.model}, tts ${agent.voice.provider}/${agent.voice.voiceId}, ` +
       `demo ${s.enabled ? "enabled" : "DISABLED"}, ${s.budgetLeftMinutes} min budget left today, ` +
       `origins ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(" ") : "any (dev)"})`,
   );

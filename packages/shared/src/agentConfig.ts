@@ -16,7 +16,8 @@ export const AgentConfigSchema = z.object({
     maxTokens: z.number().int().positive().default(300),
   }),
   voice: z.object({
-    provider: z.literal("deepgram"),
+    provider: z.enum(["deepgram", "elevenlabs"]),
+    /** Deepgram: Aura model name (e.g. aura-2-thalia-en). ElevenLabs: voice ID. */
     voiceId: z.string(),
   }),
   stt: z.object({
